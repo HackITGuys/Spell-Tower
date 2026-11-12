@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "languages": [
+    {
+      "code": "en",
+      "name": "English",
+      "word_file": "res://data/words/en.json",
+      "alphabet": "abcdefghijklmnopqrstuvwxyz",
+      "keyboard": ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
+      "casefold": {},
+      "equivalents": {}
+    },
+    {
+      "code": "nb",
+      "name": "Norsk bokmål",
+      "word_file": "res://data/words/nb.json",
+      "alphabet": "abcdefghijklmnopqrstuvwxyzæøå",
+      "keyboard": ["qwertyuiopå", "asdfghjkløæ", "zxcvbnm"],
+      "casefold": {},
+      "equivalents": { "ä": "æ", "ö": "ø" }
+    }
+  ]
+}

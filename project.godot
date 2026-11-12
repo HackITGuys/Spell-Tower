@@ -1,0 +1,61 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="SpellTower"
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[audio]
+
+general/text_to_speech=true
+
+[autoload]
+
+Settings="*res://scripts/autoload/settings.gd"
+Stats="*res://scripts/autoload/stats.gd"
+WordBank="*res://scripts/autoload/word_bank.gd"
+Locale="*res://scripts/autoload/locale.gd"
+Term="*res://scripts/autoload/term.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+Speech="*res://scripts/autoload/speech.gd"
+WebKeys="*res://scripts/autoload/web_keys.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=600
+window/size/window_height_override=1000
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[gui]
+
+theme/custom_font="res://fonts/JetBrainsMono-Regular.ttf"
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://i18n/ui.en.translation", "res://i18n/ui.nb.translation")
+locale/fallback="en"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.02, 0.035, 0.02, 1)

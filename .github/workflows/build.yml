@@ -1,0 +1,86 @@
+# Tests + web export on every push / PR. Optional GitHub Pages deploy:
+#   Settings -> Pages -> Source: "GitHub Actions", and repo variable DEPLOY_PAGES=true.
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_RELEASE: "stable"
+
+jobs:
+  test-and-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.GODOT_RELEASE }}
+
+      - name: Install Godot and export templates
+        run: |
+          set -euo pipefail
+          V="${GODOT_VERSION}-${GODOT_RELEASE}"
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${V}"
+          mkdir -p ~/godot && cd ~/godot
+          if [ ! -x godot ]; then
+            curl -fsSL -o godot.zip "${BASE}/Godot_v${V}_linux.x86_64.zip"
+            unzip -q godot.zip && mv "Godot_v${V}_linux.x86_64" godot && rm godot.zip
+            curl -fsSL -o templates.tpz "${BASE}/Godot_v${V}_export_templates.tpz"
+            unzip -q templates.tpz && rm templates.tpz
+          fi
+          T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE}"
+          mkdir -p "$T" && cp -r ~/godot/templates/. "$T"/
+          echo "$HOME/godot" >> "$GITHUB_PATH"
+
+      - name: Import assets
+        run: godot --headless --path . --import
+
+      - name: Unit tests
+        run: godot --headless --path . --script res://tests/run_tests.gd
+
+      - name: Smoke tests
+        run: |
+          set -e
+          for args in "en" "nb" "en listen" "en show continue"; do
+            echo "::group::smoke $args"
+            godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- $args
+            echo "::endgroup::"
+          done
+
+      - name: Export web
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+          test -f build/web/index.pck
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spelltower-web
+          path: build/web
+
+      - name: Prepare Pages artifact
+        if: vars.DEPLOY_PAGES == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy-pages:
+    needs: test-and-export
+    if: vars.DEPLOY_PAGES == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
