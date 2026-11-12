@@ -7,21 +7,26 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  GODOT_VERSION: "4.7.2"
-  GODOT_RELEASE: "stable"
-
 jobs:
   test-and-export:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # The Godot version is pinned in .godot-version (e.g. "4.7.2-stable") so
+      # workflows/godot-update.yml can bump it without editing a workflow file.
+      - name: Read Godot version
+        run: |
+          set -euo pipefail
+          PIN=$(tr -d '[:space:]' < .godot-version)
+          echo "GODOT_VERSION=${PIN%-*}" >> "$GITHUB_ENV"
+          echo "GODOT_RELEASE=${PIN##*-}" >> "$GITHUB_ENV"
+
       - name: Cache Godot
         uses: actions/cache@v4
         with:
           path: ~/godot
-          key: godot-${{ env.GODOT_VERSION }}-${{ env.GODOT_RELEASE }}
+          key: godot-${{ hashFiles('.godot-version') }}
 
       - name: Install Godot and export templates
         run: |
@@ -59,6 +64,27 @@ jobs:
           mkdir -p build/web
           godot --headless --path . --export-release "Web" build/web/index.html
           test -f build/web/index.pck
+
+      # The local test server is stdlib-only; check it still works on the
+      # latest patched Python 3 against the fresh export.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          check-latest: true
+
+      - name: Test web server
+        run: |
+          set -euo pipefail
+          python tools/serve_web.py --port 8060 &
+          SERVER=$!
+          for _ in $(seq 1 20); do curl -fsS -o /dev/null http://127.0.0.1:8060/ && break; sleep 0.5; done
+          H="$RUNNER_TEMP/headers.txt"
+          curl -fsSI http://127.0.0.1:8060/index.wasm | tee "$H"
+          grep -qi '^content-type: application/wasm' "$H"
+          grep -qi '^cache-control: no-store' "$H"
+          grep -qi '^cross-origin-opener-policy: same-origin' "$H"
+          grep -qi '^cross-origin-embedder-policy: require-corp' "$H"
+          kill "$SERVER"
 
       - uses: actions/upload-artifact@v4
         with:

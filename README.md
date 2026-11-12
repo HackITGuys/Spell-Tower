@@ -42,9 +42,13 @@ Or run `godot --path .` to play natively.
 The tests never write the player's real settings or stats.
 
 **CI:** [.github/workflows/build.yml](.github/workflows/build.yml) runs on every push and pull request:
-- installs Godot 4.7.2 and the export templates
+- installs the Godot version pinned in [.godot-version](.godot-version) and its export templates
 - runs the unit tests and all smoke variants
 - exports the web build and uploads it as an artifact
+- checks `tools/serve_web.py` against the export on the latest Python 3
+
+**Updates:** [Dependabot](.github/dependabot.yml) keeps the workflow actions patched, once a week.
+Dependabot can't track Godot, so [godot-update.yml](.github/workflows/godot-update.yml) does that weekly instead. It opens a PR for a new patch release (4.7.x) and an issue for a new minor or major release. It needs *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"* to be turned on.
 
 To also publish to GitHub Pages:
 1. Enable Pages with the source set to "GitHub Actions".
