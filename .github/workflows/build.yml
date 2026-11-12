@@ -11,7 +11,7 @@ jobs:
   test-and-export:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The Godot version is pinned in .godot-version (e.g. "4.7.2-stable") so
       # workflows/godot-update.yml can bump it without editing a workflow file.
@@ -23,7 +23,7 @@ jobs:
           echo "GODOT_RELEASE=${PIN##*-}" >> "$GITHUB_ENV"
 
       - name: Cache Godot
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/godot
           key: godot-${{ hashFiles('.godot-version') }}
@@ -67,7 +67,7 @@ jobs:
 
       # The local test server is stdlib-only; check it still works on the
       # latest patched Python 3 against the fresh export.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           check-latest: true
@@ -86,14 +86,14 @@ jobs:
           grep -qi '^cross-origin-embedder-policy: require-corp' "$H"
           kill "$SERVER"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: spelltower-web
           path: build/web
 
       - name: Prepare Pages artifact
         if: vars.DEPLOY_PAGES == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: build/web
 
@@ -109,4 +109,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
