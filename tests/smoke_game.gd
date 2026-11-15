@@ -1,9 +1,9 @@
 extends SceneTree
 ## Scripted play-through of the real game scene (autoloads, spawning, input,
 ## power-ups, level changes, game over). Run with a fixed timestep:
-##   godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd [-- nb [listen]]
-## User args: UI + word language (default en), optional 'listen' for dictation mode.
-## Headless has no TTS voice, so 'listen' exercises the no-voice fallback.
+##   godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd [-- nb [0]]
+## User args: UI + word language (default en), optional start grade (default 2;
+## 0 = pre-school).
 
 const PLAY_FRAMES := 60 * 90    # 90 s typing perfectly
 const IDLE_FRAMES := 60 * 240   # then stop typing until game over
@@ -18,11 +18,9 @@ var _game_over_seen := false
 var _typed_words := 0
 var _non_ascii_words := 0
 var _game_ref: Node
-var _game_listening := false
 var _lang := "en"
-var _mode := "show"
-var _resume_seen := false
-var _continue := false
+var _grade := 2   # enough nb words with æ/ø/å in the first pools
+var _peak_score := 0
 
 
 func _initialize() -> void:
@@ -30,21 +28,15 @@ func _initialize() -> void:
 	settings.persist = false
 	root.get_node("Stats").persist = false
 	settings.best = {}
-	settings.age = 6
-	settings.start_level = 0
 	settings.force_input_mode = "osk"   # exercise the on-screen keyboard build
 	var args := OS.get_cmdline_user_args()
 	_lang = args[0] if args.size() > 0 else "en"
-	_mode = args[1] if args.size() > 1 else "show"
+	_grade = int(args[1]) if args.size() > 1 else _grade
 	settings.word_lang = _lang
-	settings.mode = _mode
-	_continue = args.size() > 2 and args[2] == "continue"
-	if _continue:
-		settings.set_resume({"lang": _lang, "mode": _mode, "level": 5, "floor": 3, "score": 777})
-		settings.continue_game = true
+	settings.ui_locale = _lang   # Locale's _ready re-applies this after _initialize
+	settings.grade = _grade
 	root.get_node("Locale").apply(_lang)
-	var expected_quit := "AVSLUTT" if _lang == "nb" else "QUIT"
-	if TranslationServer.translate("MENU_QUIT") != expected_quit:
+	if TranslationServer.translate("MENU_QUIT") != _expected_quit():
 		_fail("UI locale %s not applied (got %s)" % [_lang, TranslationServer.translate("MENU_QUIT")])
 	change_scene_to_file("res://scenes/game.tscn")
 
@@ -58,11 +50,10 @@ func _process(_delta: float) -> bool:
 			return false
 		_start_level = _game.model.level
 		_game_ref = _game
-		if _continue:
-			if _game.model.level != 5 or _game.model.score != 777 or _game.model.floor_level != 3:
-				_fail("continue didn't restore level/score/floor (%d/%d/%d)" % [_game.model.level, _game.model.score, _game.model.floor_level])
-			if root.get_node("Settings").continue_game:
-				_fail("continue flag not consumed")
+		if TranslationServer.translate("MENU_QUIT") != _expected_quit():
+			_fail("UI locale %s not active in the game" % _lang)
+		if _start_level != Tuning.first_level_of_grade(_grade):
+			_fail("start grade %d should start at its first stage (got %s)" % [_grade, Tuning.level_label(_start_level)])
 		_game.model.level_changed.connect(func(_l, d): if d < 0: _saw_level_down = true)
 		_game.model.game_over.connect(func(): _game_over_seen = true)
 		return false
@@ -71,11 +62,8 @@ func _process(_delta: float) -> bool:
 		return _finish()
 	var m = _game.model
 	_max_level = maxi(_max_level, m.level)
-	var settings := root.get_node("Settings")
-	if settings.has_resume() and int(settings.resume_state["level"]) == m.level:
-		_resume_seen = true
+	_peak_score = maxi(_peak_score, m.score)
 
-	_game_listening = _game_listening or _game.listening
 	if _frame < PLAY_FRAMES and _frame % 6 == 0:
 		_type_one_letter()
 	if _frame == PLAY_FRAMES / 2:
@@ -123,7 +111,7 @@ func _fail(msg: String) -> void:
 func _finish() -> bool:
 	var settings := root.get_node("Settings")
 	var r: Dictionary = settings.last_result
-	print("start level %d, max level %d, typed %d words, level-down seen: %s" % [_start_level, _max_level, _typed_words, _saw_level_down])
+	print("start %s, max %s, typed %d words, level-down seen: %s" % [Tuning.level_label(_start_level), Tuning.level_label(_max_level), _typed_words, _saw_level_down])
 	print("result: %s" % r)
 	if _game_lang() != _lang:
 		_fail("word language %s not used (got %s)" % [_lang, _game_lang()])
@@ -138,22 +126,22 @@ func _finish() -> bool:
 		_fail("game over not reached")
 	if not _saw_level_down:
 		_fail("never levelled down before game over")
-	if r.is_empty() or int(r.get("score", 0)) <= 0:
+	if r.is_empty():
 		_fail("no result recorded")
-	if not _resume_seen:
-		_fail("resume save never matched the current level")
-	if settings.has_resume():
-		_fail("resume not cleared on game over")
+	if _peak_score <= 0:
+		_fail("never scored any points")
 	if (r.get("practice", []) as Array).is_empty():
 		_fail("practice list empty despite misses")
 	if int(r.get("high_score", 0)) < int(r.get("score", 0)):
 		_fail("high score not updated")
-	if _mode == "listen" and _game_listening:
-		_fail("listen mode active without a voice")
 	print("practice: %s" % [r.get("practice", [])])
-	print("smoke[%s %s]: %s" % [_lang, _mode, "OK" if _failures == 0 else "%d failures" % _failures])
+	print("smoke[%s grade %d]: %s" % [_lang, _grade, "OK" if _failures == 0 else "%d failures" % _failures])
 	quit(1 if _failures > 0 else 0)
 	return true
+
+
+func _expected_quit() -> String:
+	return "AVSLUTT" if _lang == "nb" else "QUIT"
 
 
 func _game_lang() -> String:

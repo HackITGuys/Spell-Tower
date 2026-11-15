@@ -1,5 +1,5 @@
 extends Control
-## Title screen: player profile, settings, start/continue. On first launch (or
+## Title screen: player profile, settings (incl. start grade), start. On first launch (or
 ## "+ new player") it shows the new-player form instead.
 ## Rebuilt whenever the language, look or profile changes.
 
@@ -7,12 +7,11 @@ const GameScene := "res://scenes/game.tscn"
 const MAX_WIDTH := 760.0
 
 var _ui: Control
-var _start_level_opt: OptionButton
 var _show_new_player := false
 var _rebuild_queued := false
 var _name_edit: LineEdit
 var _name_error: Label
-var _new_age := 8
+var _new_grade := Tuning.DEFAULT_GRADE
 var _delete_armed := false
 
 
@@ -100,7 +99,7 @@ func _build_main(v: VBoxContainer) -> void:
 	player_opt.item_selected.connect(func(i):
 		var id: String = player_opt.get_item_metadata(i)
 		if id == "":
-			_new_age = Settings.age
+			_new_grade = Settings.grade
 			_show_new_player = true
 			_queue_build()
 		else:
@@ -125,27 +124,11 @@ func _build_main(v: VBoxContainer) -> void:
 		Settings.save_settings()
 		_queue_build())
 
-	# Mode
-	var mode_opt := _row(grid, tr("MENU_MODE"))
-	for m in Settings.PLAY_MODES:
-		_item(mode_opt, tr("MODE_" + m.to_upper()), m, m == Settings.mode)
-	mode_opt.item_selected.connect(func(i):
-		Settings.mode = mode_opt.get_item_metadata(i)
-		Settings.save_settings())
-
-	# Age
-	var age_opt := _row(grid, tr("MENU_AGE"))
-	_fill_ages(age_opt, Settings.age)
-	age_opt.item_selected.connect(func(i):
-		Settings.age = age_opt.get_item_metadata(i)
-		Settings.save_settings()
-		_fill_start_levels())
-
-	# Start level
-	_start_level_opt = _row(grid, tr("MENU_START_LEVEL"))
-	_fill_start_levels()
-	_start_level_opt.item_selected.connect(func(i):
-		Settings.start_level = _start_level_opt.get_item_metadata(i)
+	# Start grade (every game starts at its first stage)
+	var grade_opt := _row(grid, tr("MENU_START_GRADE"))
+	_fill_grades(grade_opt, Settings.grade)
+	grade_opt.item_selected.connect(func(i):
+		Settings.grade = grade_opt.get_item_metadata(i)
 		Settings.save_settings())
 
 	# Colour
@@ -175,27 +158,10 @@ func _build_main(v: VBoxContainer) -> void:
 		Settings.save_settings()
 		Sfx.play("hit"))
 
-	# Start / continue
-	var focus_btn: Button
-	if Settings.has_resume():
-		var r := Settings.resume_state
-		var cont := _big_button(v, tr("MENU_CONTINUE") % r.get("level", 1))
-		cont.pressed.connect(func():
-			Settings.continue_game = true
-			_start())
-		var lang_name: String = WordBank.get_language(str(r.get("lang", ""))).get("name", "")
-		var detail := _label("%s · %s" % [lang_name, tr("MODE_" + str(r.get("mode", "show")).to_upper())], Term.DIM)
-		detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(detail)
-		var fresh := Button.new()
-		fresh.text = tr("MENU_NEW_GAME")
-		fresh.pressed.connect(_start)
-		v.add_child(fresh)
-		focus_btn = cont
-	else:
-		focus_btn = _big_button(v, tr("MENU_START"))
-		focus_btn.pressed.connect(_start)
-	focus_btn.grab_focus.call_deferred()
+	# Start
+	var start_btn := _big_button(v, tr("MENU_START"))
+	start_btn.pressed.connect(_start)
+	start_btn.grab_focus.call_deferred()
 
 	var lang := Settings.effective_word_lang()
 	var scores := _label("%s   %s" % [tr("MENU_BEST") % Settings.best_for(lang), tr("MENU_ALL_TIME") % Settings.high_score()], Term.ACCENT)
@@ -203,10 +169,7 @@ func _build_main(v: VBoxContainer) -> void:
 	scores.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(scores)
 
-	var help := ["MENU_HELP_1", "MENU_HELP_2", "MENU_HELP_3"]
-	if Settings.mode == "listen":
-		help.append("MENU_HELP_4")
-	for key in help:
+	for key in ["MENU_HELP_1", "MENU_HELP_2", "MENU_HELP_3"]:
 		var h := _label("  " + tr(key), Term.DIM)
 		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		h.add_theme_font_size_override("font_size", Term.sz(20))
@@ -236,17 +199,10 @@ func _build_main(v: VBoxContainer) -> void:
 		bottom.add_child(quit)
 
 
-func _fill_ages(opt: OptionButton, selected: int) -> void:
-	for a in range(Settings.AGE_MIN, Settings.AGE_MAX + 1):
-		_item(opt, str(a), a, a == selected)
-	_item(opt, tr("MENU_AGE_ADULT"), Settings.AGE_ADULT, selected == Settings.AGE_ADULT)
-
-
-func _fill_start_levels() -> void:
-	_start_level_opt.clear()
-	_item(_start_level_opt, tr("MENU_START_LEVEL_AUTO") % Settings.age_start_level(), 0, Settings.start_level == 0)
-	for lvl in range(Tuning.MIN_TIER, Tuning.MAX_TIER + 1):
-		_item(_start_level_opt, str(lvl), lvl, lvl == Settings.start_level)
+## Pre-school, Grade 1 .. Grade 10.
+func _fill_grades(opt: OptionButton, selected: int) -> void:
+	for g in range(Tuning.MIN_GRADE, Tuning.MAX_GRADE + 1):
+		_item(opt, Tuning.grade_name(g), g, g == selected)
 
 
 # --- New player -----------------------------------------------------------------
@@ -271,9 +227,9 @@ func _build_new_player(v: VBoxContainer) -> void:
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_edit.text_submitted.connect(func(_t): _create_player())
 	grid.add_child(_name_edit)
-	var age_opt := _row(grid, tr("MENU_AGE"))
-	_fill_ages(age_opt, _new_age)
-	age_opt.item_selected.connect(func(i): _new_age = age_opt.get_item_metadata(i))
+	var grade_opt := _row(grid, tr("PROFILE_GRADE"))
+	_fill_grades(grade_opt, _new_grade)
+	grade_opt.item_selected.connect(func(i): _new_grade = grade_opt.get_item_metadata(i))
 
 	_name_error = _label("", Term.ERROR)
 	_name_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -371,7 +327,7 @@ func _create_player() -> void:
 		return
 	_show_new_player = false
 	_disconnect_web_keys()
-	Settings.create_profile(name, _new_age)   # emits profile_changed -> rebuild
+	Settings.create_profile(name, _new_grade)   # emits profile_changed -> rebuild
 	_queue_build()
 
 
@@ -419,6 +375,4 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ENTER:
 		get_viewport().set_input_as_handled()
-		if Settings.has_resume():
-			Settings.continue_game = true
 		_start()

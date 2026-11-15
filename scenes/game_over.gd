@@ -28,7 +28,7 @@ func _ready() -> void:
 	_add(v, tr("GAMEOVER_SCORE") % r.get("score", 0), Term.FG)
 	_add(v, tr("GAMEOVER_BEST") % r.get("best", 0), Term.ACCENT)
 	_add(v, tr("GAMEOVER_ALL_TIME") % r.get("high_score", 0), Term.ACCENT)
-	_add(v, tr("GAMEOVER_LEVEL") % r.get("level", 1), Term.FG)
+	_add(v, tr("GAMEOVER_REACHED") % r.get("level", ""), Term.FG)
 	_add(v, tr("GAMEOVER_WORDS") % [r.get("words", 0), r.get("missed", 0)], Term.FG)
 	_add(v, tr("GAMEOVER_ACCURACY") % r.get("accuracy", 0), Term.FG)
 

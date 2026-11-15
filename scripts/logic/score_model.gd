@@ -1,6 +1,7 @@
 class_name ScoreModel
 extends RefCounted
 ## Bar, score, streak, accuracy and level progression. No nodes, no timing.
+## `level` counts stages over all grades (see Tuning: level 6 = grade 1, stage 1).
 
 signal level_changed(new_level: int, delta: int)
 signal game_over
@@ -22,19 +23,10 @@ var _outcomes: Array[float] = []
 
 
 func _init(p_start_level: int) -> void:
-	start_level = clampi(p_start_level, 1, 99)
+	start_level = clampi(p_start_level, 1, Tuning.MAX_LEVEL)
 	level = start_level
 	max_level_reached = level
 	floor_level = maxi(1, start_level - Tuning.LEVEL_DOWN_ALLOWANCE)
-
-
-## Continue a saved game from the start of a level.
-func resume(p_level: int, p_floor: int, p_score: int) -> void:
-	level = maxi(1, p_level)
-	floor_level = clampi(p_floor, 1, level)
-	score = maxi(0, p_score)
-	max_level_reached = level
-	bar = Tuning.BAR_START
 
 
 func accuracy() -> float:
@@ -59,13 +51,13 @@ func combo_multiplier() -> float:
 
 
 func bar_gain_for(d: int) -> float:
-	var factor := clampf(float(d) / float(Tuning.tier_for_level(level)),
+	var factor := clampf(Tuning.difficulty_weight(d) / Tuning.difficulty_weight(Tuning.grade_for_level(level)),
 			Tuning.BAR_GAIN_MIN_FACTOR, Tuning.BAR_GAIN_MAX_FACTOR)
 	return Tuning.BAR_GAIN * factor
 
 
 func miss_penalty() -> float:
-	var level_mult := 1.0 + Tuning.MISS_LEVEL_STEP * (level - 1)
+	var level_mult := 1.0 + Tuning.MISS_LEVEL_STEP * maxi(0, Tuning.grade_for_level(level) - 1)
 	var streak_mult := 1.0 + Tuning.MISS_STREAK_STEP * mini(streak, Tuning.MISS_STREAK_CAP)
 	return Tuning.MISS_BASE_PENALTY * level_mult * (0.5 + accuracy()) * streak_mult
 
@@ -132,7 +124,9 @@ func _push_outcome(v: float) -> void:
 
 func _change_bar(delta: float) -> void:
 	bar += delta
-	if bar >= Tuning.BAR_MAX:
+	if bar >= Tuning.BAR_MAX and level >= Tuning.MAX_LEVEL:
+		bar = Tuning.BAR_MAX   # top level: nothing left to unlock
+	elif bar >= Tuning.BAR_MAX:
 		level += 1
 		max_level_reached = maxi(max_level_reached, level)
 		bar = Tuning.BAR_RESET

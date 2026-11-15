@@ -30,10 +30,11 @@ By default the word language follows the interface language. They can differ on 
 2. Create `data/words/<code>.json`:
    ```json
    { "lang": "de", "version": 1,
-     "tiers": { "1": ["hund", "..."], "2": ["..."] },
+     "tiers": { "0": ["a", "b", "..."], "1": ["hund", "..."], "2": ["..."] },
      "concepts": { "hund": "animal.dog" } }
    ```
    - Words are lower-case and in Unicode **NFC** (precomposed `å`, not `a` + combining ring). The tests reject combining marks.
+   - A tier is a grade: `"0"` is pre-school (single letters of the alphabet and first words), `"1"`..`"10"` are school grades 1..10.
    - Tiers can be sparse. The picker falls back to the nearest tier that has words.
 3. Run the tests.
 
@@ -48,22 +49,27 @@ entry = { id: "en:cat", w: "cat", d: 1, concept: "animal.cat" }
 ```
 
 - **`id` = `<lang>:<word>`** is the unit for all statistics and difficulty. "cat" (en) and "katt" (nb) are *different spelling problems*. They're never merged, even though they mean the same thing.
-- **`d`** is the curated base tier, 1..10 (roughly age = d + 4). Each language is calibrated **for its own speakers**. A more phonetic language (Norwegian, Finnish) may place longer words at a lower tier than English would.
+- **`d`** is the curated base tier, which is the grade the word belongs to: 0 = pre-school, 1..10 = school grade 1..10. Each language is calibrated **for its own speakers**. A more phonetic language (Norwegian, Finnish) may place longer words at a lower tier than English would.
 - **`concept`** is optional and links translations (`animal.cat`). It has **no effect on difficulty**. It exists for future modes such as "see the English word, type the Norwegian" or showing a picture. A concept can exist in one language and not another.
 
 ## 3. Difficulty pipeline
 
 ```
-effective_difficulty(lang, word, age_band) = clamp(base_d + local_adjust + server_adjust, 1, 10)
+effective_difficulty(lang, word, grade) = clamp(base_d + local_adjust + server_adjust, 0, 10)
 ```
 
 | Term | v1 | Later |
 |---|---|---|
 | `base_d` | curated tier from the word file | same |
 | `local_adjust` | 0..+2 from this device's stats (`Stats.local_adjust`) | same |
-| `server_adjust` | always 0 (`WordBank.server_adjust` is empty) | from the server, per `(lang, word, age_band)` |
+| `server_adjust` | always 0 (`WordBank.server_adjust` is empty) | from the server, per `(lang, word, grade)` |
 
-The effective difficulty decides **which tier a word is drawn from** and **how many points it is worth**.
+The effective difficulty decides **which grade a word is drawn from** and **how many points it is worth** (pre-school words count as 0.5).
+
+### Picking words in a game
+- 75% of words come from the current grade, 15% from the grade below, and 10% from any grade below that (each equally likely). At the bottom, a missing share goes to the current grade.
+- The current grade is shuffled once per game. Stage 1 uses the first 20 words of that order and every stage adds 10 more, so new words are introduced while the earlier ones keep coming back. Lower grades use all their words.
+- Constants live in `scripts/logic/tuning.gd` (`WEIGHT_*`, `POOL_START`, `POOL_GROWTH`).
 
 ### Local stats (`user://stats_<profile_id>.json`, implemented)
 Stats are kept **per player profile**. Profiles are listed in `user://profiles.json`, and each profile has an anonymous random `anon_id`, which is the id the server would see. The nickname is never sent.
@@ -76,7 +82,7 @@ Each `"<lang>:<word>"` entry stores:
 - `wl`: wrong letters
 - `b`: review box, from 0 up to the number of review gaps. Reaching that number means the word has "graduated" from review.
 
-The file also holds the player's current `age_band` (`4-5`, `6-7`, …, `14-15`, `adult`).
+The file also holds the player's start `grade` (0..10). It replaced the earlier age band.
 
 **Review (failed words come back).** A miss or a misspelling puts the word in box 0 of a small Leitner queue (`scripts/logic/review_queue.gd`), counted in word spawns:
 - The gaps are `REVIEW_GAPS = [4, 10, 25]` spawns.
@@ -92,21 +98,21 @@ On the server this becomes the same signal as the fail rate: words many children
 
 ```
 POST /v1/stats
-{ "anon_id": "9f3c…", "lang": "en", "age_band": "8-9", "app_version": "0.1",
+{ "anon_id": "9f3c…", "lang": "en", "grade": 3, "app_version": "0.1",
   "words": [ { "id": "en:because", "a": 6, "c": 2, "x": 3, "m": 1, "wl": 5 } ] }
 
-GET /v1/words/en?age_band=8-9&since=2026-11-01
+GET /v1/words/en?grade=3&since=2026-11-01
 → { "version": 42, "words": [ { "id": "en:because", "w": "because", "d_base": 5, "d_server": 6 } ] }
 ```
 
-- The server aggregates by **`(lang, word, age_band)`**. A word that's hard for 7-year-olds can be easy for 12-year-olds, and the same English word can behave differently from its Norwegian counterpart.
+- The server aggregates by **`(lang, word, grade)`**. A word that's hard in grade 2 can be easy in grade 6, and the same English word can behave differently from its Norwegian counterpart.
 - Difficulty comes from the miss rate, shrunk towards the curated tier (Bayesian prior). With `k` = prior strength (e.g. 30 attempts), `rate = (fails + k·prior_rate(d_base)) / (attempts + k)`, mapped back to a tier. Words with few plays stay at their curated tier, and popular words move as data comes in.
 - The client stores `server_adjust = d_server - d_base` per word. It is capped at ±2 per sync so a word can't swing wildly.
 - The server can also ship **new words and whole new languages** with the same file format as `data/words/*.json`. The bundled files stay as the offline fallback.
 - The client syncs at the end of a game when online and caches the result in `user://`. It never blocks play.
 
 ### Privacy (GDPR / children)
-- **Default: collect only** the anonymous per-profile id, the language, the age *band* (not exact age or birth date) and the per-word counts above. There's no name, email, device id or IP logging beyond what transport requires.
+- **Default: collect only** the anonymous per-profile id, the language, the chosen start grade (no age or birth date) and the per-word counts above. There's no name, email, device id or IP logging beyond what transport requires.
 - **Gender and country are not collected.** For children they are special-care data with little value for spelling difficulty. If ever needed they must be opt-in, with parental consent for under-16s (GDPR Art. 8; the threshold varies by EU country, 13–16), a privacy notice, and a delete-my-data path keyed by that id.
 - Uploading is off until there's a settings toggle and a privacy notice. Deleting a profile already deletes its local stats. Resetting the id must also be possible.
 
@@ -116,7 +122,8 @@ GET /v1/words/en?age_band=8-9&since=2026-11-01
 | UI strings | `i18n/ui.csv`, `scripts/autoload/locale.gd` |
 | Manifest, word loading, effective difficulty | `scripts/autoload/word_bank.gd` |
 | Text normalisation (casefold, equivalents, alphabet) | `scripts/logic/text_norm.gd` |
-| Tier weighting, shuffle bag, unique initials, fallback | `scripts/logic/word_picker.gd` |
+| Grade mix, growing word pools, shuffle bag, unique initials, fallback | `scripts/logic/word_picker.gd` |
+| Grades and stages, speed, pool sizes | `scripts/logic/tuning.gd` |
 | Review of failed words | `scripts/logic/review_queue.gd` |
-| Local stats (per profile) + age bands | `scripts/autoload/stats.gd` |
-| Profiles, preferences, resume | `scripts/autoload/settings.gd` |
+| Local stats (per profile) | `scripts/autoload/stats.gd` |
+| Profiles, preferences, start grade | `scripts/autoload/settings.gd` |

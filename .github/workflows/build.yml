@@ -53,7 +53,7 @@ jobs:
       - name: Smoke tests
         run: |
           set -e
-          for args in "en" "nb" "en listen" "en show continue"; do
+          for args in "en" "nb" "en 0"; do
             echo "::group::smoke $args"
             godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- $args
             echo "::endgroup::"

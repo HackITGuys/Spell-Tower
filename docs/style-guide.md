@@ -47,7 +47,6 @@ Rules:
 | Element | Look |
 |---|---|
 | falling word | `[ word ]`. Brackets are DIM, or ACCENT when locked; typed letters are ACCENT |
-| masked word (dictation) | `[ b _ _ _ _ _ _ ]`, one slot per letter |
 | prompt | `> typed█`, with a blinking block cursor |
 | base / ground | a row of `═` |
 | bar | `[██████░░░░] 62%` |
@@ -73,9 +72,8 @@ Draw characters on a grid. Monospace cell width is `Term.char_width()`, and cust
 | letters | play |
 | Backspace | release, undo |
 | Esc | pause; back from a result screen |
-| Enter | confirm, start, continue |
+| Enter | confirm, start |
 | 1 / 2 / 3 | power-ups |
-| Tab | repeat speech |
 
 - Input is chosen by platform, never by a setting (`Settings.input_mode()`):
   - **Native mobile app:** the game's own on-screen keyboard. The system keyboard is disabled, and the layout comes from the language file.
@@ -118,7 +116,6 @@ Sounds are generated in code (`Sfx`): short square, sine or noise blips, and the
 
 - Text size up to 1.45×, six colour presets (including white), and a sound toggle.
 - Colour is never the only signal (see §1).
-- Dictation mode helps players who struggle with reading, and the speech rate is set a little slower (0.85).
 - TODO: a reduced-motion setting (no shake), and a dyslexia-friendly font option.
 
 ## TODO: line-art direction

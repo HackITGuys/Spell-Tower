@@ -1,18 +1,20 @@
 # SpellTower
 
-A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward your tower, and you type them before they land. The game is multi-lingual (UI and words), and the starting difficulty comes from the player's age.
+A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward your tower, and you type them before they land. The game is multi-lingual (UI and words), and words are grouped by school grade, from pre-school to grade 10.
 
 ## How it plays
 - Type the first letter of a falling word to lock on, then finish typing it. **Backspace** lets go of the word.
 - A finished word gives points based on its difficulty. A wrong letter or a word reaching the base costs bar, and the penalty grows the better you are doing.
 - **A missed word shows its correct spelling** at the base. Missed and misspelled words **come back** later in the game, and in the next game. They're listed under "words to practise" when the game ends.
-- A full bar takes you **up a level**, and an empty bar takes you **down a level**. If the bar empties when you're 2 levels below where you started, it's game over.
+- **Grades:** words are grouped into grades: *Pre-school* (single letters and first words), then *Grade 1* to *Grade 10*. Each grade is played as 5 stages, shown as e.g. `GRADE 3 · 2/5`.
+  - A full bar takes you **up a stage**, and an empty bar takes you **down a stage**. Beating stage 5 moves you up a grade. If the bar empties when you're 2 stages below where you started, it's game over.
+  - Every game starts at stage 1 of the *Start grade* chosen in the menu. There's no save/continue.
+  - Each game picks a random set of 20 words from the grade for stage 1, and every later stage adds 10 more.
+  - Words from lower grades are mixed in: 75% of the words come from the current grade, 15% from the grade below, and 10% from all the grades below that.
+  - Words fall a little faster at each stage (+4% per stage). A new grade starts slower again, and dropping back into the grade below speeds up, because its words are easier.
 - Power-ups (keys **1/2/3** or the buttons): **AUTO** spells the current word, **CLEAR** wipes the screen, **SHAKE** swaps every word for new ones.
   - +1 AUTO for every 10 correctly spelled words, but every 3rd of those rewards is a SHAKE instead.
-  - +1 CLEAR for every level cleared.
-- **Modes**:
-  - *Read and type*: words are shown in full.
-  - *Listen and spell* (dictation): words show only their first letter, as `[ b _ _ _ _ _ _ ]`. When you type that letter and lock on, the word is spoken. **Tab** or **SAY** repeats it. If the device has no voice for the language, the game falls back to showing words.
+  - +1 CLEAR for every stage cleared.
 - **Esc** pauses the game.
 - **Typing** depends on the platform (it isn't a setting):
   - **Native phone or tablet app:** the game's own on-screen keyboard. It has no autocorrect, and its layout comes from the language file.
@@ -22,10 +24,9 @@ A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward
 ## Players
 - Players are name-based and stored on the device only. Use a nickname: no other personal data is collected.
 - Each player keeps their own:
-  - language, colour, text size and sound settings
+  - start grade, language, colour, text size and sound settings
   - best score per word language, and an all-time best
   - spelling statistics, used for review
-  - a **continue** save at the start of the level they were on. The save is cleared on game over.
 - Colours come from six presets. Each is one base colour, and the rest of the palette is derived from it (see [docs/style-guide.md](docs/style-guide.md)).
 
 ## Dev loop (web first)
@@ -33,7 +34,7 @@ A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward
 godot --headless --path . --import                                        # first time / after adding assets
 godot --headless --path . --script res://tests/run_tests.gd               # logic tests
 godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- en   # scripted playthrough
-#   other variants: -- nb   |   -- en listen   |   -- en show continue
+#   other variants: -- nb   |   -- en 0  (start grade, 0 = pre-school)
 godot --headless --path . --export-debug "Web" build/web/index.html       # web build
 python tools/serve_web.py                                                 # http://localhost:8060  (--lan for a phone)
 ```
@@ -61,7 +62,7 @@ Windows and Android builds can be added to the same workflow later. Android rele
 |---|---|
 | `scenes/` | main menu, game, game over, falling word, on-screen keyboard, width cap (UI built in code) |
 | `scripts/logic/` | pure, unit-tested rules: tuning, scoring, targeting, word picking, review queue, text normalisation, power-ups |
-| `scripts/autoload/` | settings and profiles, stats, word bank, locale, look (Term), sound (Sfx), speech |
+| `scripts/autoload/` | settings and profiles, stats, word bank, locale, look (Term), sound (Sfx), phone keyboard (WebKeys) |
 | `data/` | language manifest + word banks |
 | `i18n/ui.csv` | UI strings, one column per locale |
 | `docs/languages-and-difficulty.md` | how to add languages, and the difficulty/server design |
@@ -78,7 +79,7 @@ SpellTower is meant to be the first game in a series that shares the same style 
 - **Translation:** see or hear a word in one language and type it in another. The word files already link translations through `concept` ids (`animal.cat` ↔ `katt`), so this mostly needs a mode and more linked words.
 
 **Separate games:**
-- **Maths drops:** falling sums, answered on a number-pad keyboard, using the same bar and level system.
+- **Maths drops:** falling sums, answered on a number-pad keyboard, using the same bar, grade and stage system.
 - **Robot commands:** type `move 3` or `turn left` to steer a robot through a grid, a first taste of coding.
 - **Geography or vocabulary drops:** the same mechanic with different content, through the same server difficulty model.
 

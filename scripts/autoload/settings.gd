@@ -1,9 +1,9 @@
 extends Node
 ## Local, name-based player profiles (user://profiles.json).
 ##
-## Each profile keeps its own preferences, scores and the "continue" save.
+## Each profile keeps its own preferences, start grade and scores.
 ## Nothing but the nickname identifies a player, and nothing leaves the device.
-## The familiar properties (Settings.age, Settings.ui_locale, …) read and write
+## The familiar properties (Settings.grade, Settings.ui_locale, …) read and write
 ## the current profile.
 
 signal changed
@@ -11,9 +11,6 @@ signal profile_changed
 
 const PATH := "user://profiles.json"
 const VERSION := 1
-const AGE_MIN := 4
-const AGE_MAX := 15
-const AGE_ADULT := 99
 const NAME_MAX := 16
 ## How the player types, decided by platform (not a setting):
 ##   "osk"         native mobile app -> the game's own on-screen keyboard
@@ -22,7 +19,6 @@ const NAME_MAX := 16
 const INPUT_OSK := "osk"
 const INPUT_WEB_MOBILE := "web_mobile"
 const INPUT_KEYS := "keys"
-const PLAY_MODES: Array[String] = ["show", "listen"]
 const FORBIDDEN_NAME_CHARS := "<>/\\:*?\"|{}[]#%&$@=+;`~^"
 
 const DEFAULTS := {
@@ -30,23 +26,18 @@ const DEFAULTS := {
 	"anon_id": "",
 	"ui_locale": "",      # "" = OS language
 	"word_lang": "",      # "" = same as interface
-	"age": 8,
-	"start_level": 0,     # 0 = from age
-	"mode": "show",       # show | listen (dictation)
+	"grade": Tuning.DEFAULT_GRADE,   # start grade: 0 = pre-school, 1..10
 	"palette": "green",
 	"text_size": "m",
 	"sound": true,
 	"best": {},           # word lang -> best score
 	"high_score": 0,      # all-time, any language
-	"resume": {},         # {lang, mode, level, floor, score}; cleared on game over
 }
 
 ## Tests set this to false so they never touch the player's real files.
 var persist := true
 ## Runtime only: result of the last game, read by the game-over screen.
 var last_result := {}
-## Runtime only: the next game continues the saved one.
-var continue_game := false
 ## Tests can force an input mode (e.g. "osk" to build the on-screen keyboard).
 var force_input_mode := ""
 
@@ -60,15 +51,10 @@ var ui_locale: String:
 var word_lang: String:
 	get: return str(profile.get("word_lang", ""))
 	set(v): profile["word_lang"] = v
-var age: int:
-	get: return int(profile.get("age", 8))
-	set(v): profile["age"] = v
-var start_level: int:
-	get: return int(profile.get("start_level", 0))
-	set(v): profile["start_level"] = v
-var mode: String:
-	get: return str(profile.get("mode", "show"))
-	set(v): profile["mode"] = v
+## Start grade: 0 = pre-school, 1..10. Every game starts at its first stage.
+var grade: int:
+	get: return clampi(int(profile.get("grade", Tuning.DEFAULT_GRADE)), Tuning.MIN_GRADE, Tuning.MAX_GRADE)
+	set(v): profile["grade"] = clampi(v, Tuning.MIN_GRADE, Tuning.MAX_GRADE)
 var palette: String:
 	get: return str(profile.get("palette", "green"))
 	set(v): profile["palette"] = v
@@ -81,8 +67,6 @@ var sound: bool:
 var best: Dictionary:
 	get: return profile.get("best", {})
 	set(v): profile["best"] = v
-var resume_state: Dictionary:
-	get: return profile.get("resume", {})
 
 
 func _ready() -> void:
@@ -92,7 +76,9 @@ func _ready() -> void:
 # --- Persistence --------------------------------------------------------------
 
 func load_settings() -> void:
-	if not FileAccess.file_exists(PATH):
+	# Tests clear `persist` before the autoloads are ready; reading the real
+	# profiles here would replace the settings the test just made.
+	if not persist or not FileAccess.file_exists(PATH):
 		return
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PATH))
 	if not (parsed is Dictionary) or int(parsed.get("version", 0)) != VERSION:
@@ -123,9 +109,22 @@ func save_settings() -> void:
 
 
 static func _fill_defaults(p: Dictionary) -> void:
+	_migrate(p)
 	for k in DEFAULTS:
 		if not p.has(k):
 			p[k] = DEFAULTS[k].duplicate(true) if DEFAULTS[k] is Dictionary else DEFAULTS[k]
+
+
+## Older profiles: age + start level became a start grade; dictation mode and
+## the continue save were removed.
+static func _migrate(p: Dictionary) -> void:
+	if not p.has("grade") and (p.has("age") or p.has("start_level")):
+		var chosen := int(p.get("start_level", 0))
+		# Age 6 was the first school year (grade 1); "adult" (99) clamps to 10.
+		var g := chosen if chosen > 0 else int(p.get("age", 6)) - 5
+		p["grade"] = clampi(g, Tuning.MIN_GRADE, Tuning.MAX_GRADE)
+	for old in ["age", "start_level", "mode", "resume"]:
+		p.erase(old)
 
 
 # --- Profiles -----------------------------------------------------------------
@@ -176,7 +175,7 @@ func name_taken(name: String) -> bool:
 
 ## Returns the new profile id, or "" if the name is empty/taken.
 ## The new profile inherits the current look and language so switching feels natural.
-func create_profile(raw_name: String, p_age: int) -> String:
+func create_profile(raw_name: String, p_grade: int) -> String:
 	var name := sanitize_name(raw_name)
 	if name.is_empty() or name_taken(name):
 		return ""
@@ -184,7 +183,7 @@ func create_profile(raw_name: String, p_age: int) -> String:
 	for k in ["ui_locale", "palette", "text_size", "sound"]:
 		p[k] = profile.get(k, DEFAULTS[k])
 	p["name"] = name
-	p["age"] = p_age
+	p["grade"] = clampi(p_grade, Tuning.MIN_GRADE, Tuning.MAX_GRADE)
 	p["anon_id"] = _random_id(8)
 	var id := _random_id(4)
 	while _data["profiles"].has(id):
@@ -236,14 +235,9 @@ func _apply_profile() -> void:
 
 # --- Derived settings -----------------------------------------------------------
 
-func age_start_level() -> int:
-	if age >= AGE_ADULT:
-		return Tuning.MAX_TIER
-	return Tuning.start_level_for_age(age)
-
-
+## Running level (see Tuning) a new game starts at: stage 1 of the start grade.
 func effective_start_level() -> int:
-	return start_level if start_level > 0 else age_start_level()
+	return Tuning.first_level_of_grade(grade)
 
 
 ## Word language actually used: explicit choice, else the UI language, else "en".
@@ -272,7 +266,7 @@ func show_keyboard() -> bool:
 	return input_mode() == INPUT_OSK
 
 
-# --- Scores and resume ------------------------------------------------------------
+# --- Scores ------------------------------------------------------------------------
 
 func best_for(lang: String) -> int:
 	return int(best.get(lang, 0))
@@ -294,20 +288,6 @@ func record_score(lang: String, score: int) -> bool:
 		profile["high_score"] = score
 	save_settings()
 	return new_best
-
-
-func has_resume() -> bool:
-	return not resume_state.is_empty() and int(resume_state.get("level", 0)) > 0
-
-
-func set_resume(state: Dictionary) -> void:
-	profile["resume"] = state.duplicate()
-	save_settings()
-
-
-func clear_resume() -> void:
-	profile["resume"] = {}
-	save_settings()
 
 
 static func _random_id(bytes: int) -> String:

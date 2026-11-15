@@ -54,12 +54,11 @@ static func key(lang: String, word: String) -> String:
 	return lang + ":" + word
 
 
-## Age bands used for (future) server aggregation. Coarse on purpose (GDPR).
-static func age_band(age: int) -> String:
-	if age >= 16:
-		return "adult"
-	var lo := age - (age % 2)
-	return "%d-%d" % [lo, lo + 1]
+## The player's start grade, stored with the stats for (future) server
+## aggregation by (lang, word, grade). Replaces the old age band.
+func set_grade(grade: int) -> void:
+	data.erase("age_band")
+	data["grade"] = grade
 
 
 func entry(lang: String, word: String) -> Dictionary:

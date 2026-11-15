@@ -15,10 +15,6 @@ run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
-[audio]
-
-general/text_to_speech=true
-
 [autoload]
 
 Settings="*res://scripts/autoload/settings.gd"
@@ -27,7 +23,6 @@ WordBank="*res://scripts/autoload/word_bank.gd"
 Locale="*res://scripts/autoload/locale.gd"
 Term="*res://scripts/autoload/term.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
-Speech="*res://scripts/autoload/speech.gd"
 WebKeys="*res://scripts/autoload/web_keys.gd"
 
 [display]
@@ -47,7 +42,6 @@ theme/custom_font="res://fonts/JetBrainsMono-Regular.ttf"
 [internationalization]
 
 locale/translations=PackedStringArray("res://i18n/ui.en.translation", "res://i18n/ui.nb.translation")
-locale/fallback="en"
 
 [physics]
 

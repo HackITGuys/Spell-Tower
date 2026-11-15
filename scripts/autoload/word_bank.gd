@@ -3,7 +3,8 @@ extends Node
 ##
 ## Word file format (data/words/<code>.json):
 ##   { "lang": "en", "version": 1,
-##     "tiers": { "1": ["cat", ...], ..., "10": [...] },
+##     "tiers": { "0": ["a", ...], "1": ["cat", ...], ..., "10": [...] },
+##   Tier = grade: 0 = pre-school, 1..10 = school grade.
 ##     "concepts": { "cat": "animal.cat" } }
 ## Expanded at load time into entries { id: "en:cat", w, d, concept }.
 
@@ -64,7 +65,7 @@ func load_language(code: String) -> bool:
 	var concepts: Dictionary = parsed.get("concepts", {})
 	var tiers: Dictionary = parsed["tiers"]
 	for t in tiers:
-		var d := clampi(int(t), Tuning.MIN_TIER, Tuning.MAX_TIER)
+		var d := clampi(int(t), Tuning.MIN_GRADE, Tuning.MAX_GRADE)
 		for raw: String in tiers[t]:
 			var w := norm.normalize_word(raw)
 			if not norm.is_valid_word(w):
@@ -75,7 +76,7 @@ func load_language(code: String) -> bool:
 
 
 func base_difficulty(word: String) -> int:
-	return int(entries.get(word, {}).get("d", 1))
+	return int(entries.get(word, {}).get("d", Tuning.DEFAULT_GRADE))
 
 
 ## base + local (this player's stats) + server (global stats, future), clamped.
@@ -84,7 +85,7 @@ func effective_difficulty(word: String) -> int:
 	if stats_provider != null:
 		d += int(stats_provider.local_adjust(lang, word))
 	d += int(server_adjust.get(word, 0))
-	return clampi(d, Tuning.MIN_TIER, Tuning.MAX_TIER)
+	return clampi(d, Tuning.MIN_GRADE, Tuning.MAX_GRADE)
 
 
 func concept_of(word: String) -> String:

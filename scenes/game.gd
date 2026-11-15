@@ -13,8 +13,6 @@ var targeting := Targeting.new()
 var review := ReviewQueue.new()
 var picker: WordPicker
 var lang := "en"
-var mode := "show"          ## requested mode (show | listen)
-var listening := false      ## listen mode actually active (a voice exists)
 var words: Array[FallingWord] = []
 var practice: Array[String] = []
 
@@ -26,7 +24,6 @@ var _msg: Label
 var _base: Label
 var _prompt: Label
 var _power_buttons := {}
-var _say_button: Button
 var _keyboard: OnScreenKeyboard
 var _spawn_timer: Timer
 var _pause_panel: Control
@@ -42,11 +39,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	var resuming := Settings.continue_game and Settings.has_resume()
-	Settings.continue_game = false
-	var saved := Settings.resume_state if resuming else {}
-	lang = saved.get("lang", Settings.effective_word_lang())
-	mode = saved.get("mode", Settings.mode)
+	lang = Settings.effective_word_lang()
 	if not WordBank.load_language(lang):
 		lang = "en"
 		WordBank.load_language(lang)
@@ -58,11 +51,9 @@ func _ready() -> void:
 			seeds.append(w)
 	review.seed_words(seeds)
 	review.box_changed.connect(func(w, b): Stats.set_box(lang, w, b))
-	Stats.data["age_band"] = Stats.age_band(Settings.age)
+	Stats.set_grade(Settings.grade)
 
 	model = ScoreModel.new(Settings.effective_start_level())
-	if resuming:
-		model.resume(int(saved["level"]), int(saved.get("floor", 1)), int(saved.get("score", 0)))
 	model.level_changed.connect(_on_level_changed)
 	model.game_over.connect(_on_game_over)
 	model.bar_changed.connect(func(_v): _update_hud())
@@ -79,28 +70,14 @@ func _ready() -> void:
 		WebKeys.set_active(true)
 	_update_hud()
 	_update_powers()
-	_save_resume()
 	_flash_msg(tr("MSG_GET_READY"), Term.FG)
-	# Start after a short "get ready"; this also gives web TTS voices time to load.
+	# Start after a short "get ready".
 	get_tree().create_timer(1.0, false).timeout.connect(_start_play)
 
 
 func _start_play() -> void:
 	if _ending:
 		return
-	if mode == "listen":
-		var waited := 0.0
-		while Speech.supported() and not Speech.available(lang) and waited < Speech.VOICE_WAIT:
-			await get_tree().create_timer(0.25, false).timeout
-			waited += 0.25
-		if _ending or not is_inside_tree():
-			return
-	listening = mode == "listen" and Speech.available(lang)
-	if mode == "listen" and OS.is_debug_build():
-		print("[speech] ", Speech.debug_info(lang))
-	if mode == "listen" and not listening:
-		_flash_msg(tr("MSG_NO_VOICE"), Term.ERROR)
-	_say_button.visible = listening
 	_started = true
 	if _web_mobile and not _web_typed:
 		_flash_msg(tr("MSG_TAP_TO_TYPE"), Term.ACCENT)
@@ -180,9 +157,6 @@ func _build_ui() -> void:
 	for i in PowerUps.KINDS.size():
 		var kind := PowerUps.KINDS[i]
 		_power_buttons[kind] = _small_button(power_row, _use_power.bind(kind))
-	_say_button = _small_button(power_row, _say_current)
-	_say_button.text = "TAB:" + tr("POWER_SAY")
-	_say_button.visible = false
 
 	if Settings.show_keyboard():
 		_keyboard = OnScreenKeyboard.new()
@@ -241,8 +215,8 @@ func _build_pause_panel() -> void:
 func _update_hud() -> void:
 	if _hud_line == null:
 		return
-	_hud_line.text = "%s %d   %s %d   %s %d" % [
-		tr("HUD_LEVEL"), model.level, tr("HUD_SCORE"), model.score, tr("HUD_STREAK"), model.streak]
+	_hud_line.text = "%s  %s %d  %s %d" % [
+		Tuning.level_label(model.level).to_upper(), tr("HUD_SCORE"), model.score, tr("HUD_STREAK"), model.streak]
 	var filled := int(round(model.bar / Tuning.BAR_MAX * BAR_CHARS))
 	_bar_line.text = "[%s%s] %3d%%" % ["█".repeat(filled), "░".repeat(BAR_CHARS - filled), int(model.bar)]
 	var col := Term.FG
@@ -353,31 +327,22 @@ func _process(delta: float) -> void:
 			_on_missed(w)
 
 
-func _max_words() -> int:
-	var m := Tuning.max_words(model.level)
-	return mini(m, Tuning.LISTEN_MAX_WORDS) if listening else m
-
-
 func _spawn() -> void:
 	if _ending or not _started:
 		return
-	_spawn_timer.wait_time = Tuning.spawn_interval(model.level) * (Tuning.LISTEN_FALL_FACTOR if listening else 1.0)
-	if _alive_words().size() >= _max_words():
+	_spawn_timer.wait_time = Tuning.spawn_interval(model.level)
+	if _alive_words().size() >= Tuning.max_words(model.level):
 		return
 	var txt := picker.pick(model.level, _blocked_initials())
 	if txt == "":
 		return
 	var fw := FallingWord.new()
 	var fall_time := Tuning.fall_time(model.level, txt.length())
-	if listening:
-		fall_time *= Tuning.LISTEN_FALL_FACTOR
 	fw.setup(txt, WordBank.effective_difficulty(txt), _playfield.size.y / fall_time,
-			Term.font, Term.sz(Term.WORD_SIZE), listening)
+			Term.font, Term.sz(Term.WORD_SIZE))
 	fw.position = Vector2(_free_x(fw.size.x), -fw.size.y)
 	_world.add_child(fw)
 	words.append(fw)
-	# Listen mode: a word is spoken when the player locks onto it (first
-	# letter typed), not when it appears.
 
 
 ## Random x that doesn't overlap words still near the top.
@@ -432,8 +397,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				_toggle_pause()
 		KEY_BACKSPACE:
 			_release()
-		KEY_TAB:
-			_say_current()
 		KEY_1, KEY_KP_1:
 			_use_power(PowerUps.AUTOSPELL)
 		KEY_2, KEY_KP_2:
@@ -458,8 +421,6 @@ func _handle_char(raw: String) -> void:
 			_prompt_flash = 0.2
 		Targeting.Result.LOCKED:
 			Sfx.play("lock")
-			if listening:
-				Speech.say(targeting.current.text, lang, true)
 		Targeting.Result.ADVANCED:
 			Sfx.play("key")
 		Targeting.Result.WRONG:
@@ -491,23 +452,12 @@ func _release() -> void:
 	_update_prompt()
 
 
-## Listen mode: say the targeted word again (or the nearest one, before locking).
-func _say_current() -> void:
-	if not listening or _ending:
-		return
-	var w: FallingWord = targeting.current if targeting.has_target() else Targeting.nearest(_alive_words())
-	if w != null:
-		Speech.say(w.text, lang, true)
-
-
 func _toggle_pause() -> void:
 	if _ending:
 		return
 	var p := not get_tree().paused
 	get_tree().paused = p
 	_pause_panel.visible = p
-	if p:
-		Speech.stop()
 	if _web_mobile:
 		WebKeys.set_active(not p)
 
@@ -544,8 +494,6 @@ func _on_missed(w: FallingWord) -> void:
 	review.failed(w.text)
 	_add_practice(w.text)
 	_show_correct_spelling(w.text, w.position.x)
-	if listening:
-		Speech.say(w.text, lang, true)
 	var p := model.on_word_missed()
 	_float_text(Vector2(w.position.x, _playfield.size.y - 110.0), "-%d" % int(round(p)), Term.ERROR)
 	_remove(w)
@@ -568,27 +516,18 @@ func _remove(w: FallingWord) -> void:
 
 
 func _on_level_changed(new_level: int, delta: int) -> void:
+	var label := Tuning.level_label(new_level).to_upper()
 	if delta > 0:
 		Sfx.play("level_up")
-		_flash_msg(tr("MSG_LEVEL_UP"), Term.FG)
+		# Stage 1 of a new grade: harder words, slower start.
+		var key := "MSG_GRADE_UP" if Tuning.stage_for_level(new_level) == 1 else "MSG_STAGE_UP"
+		_flash_msg("%s\n%s" % [tr(key), label], Term.FG)
 		powers.on_level_up()
 	else:
 		Sfx.play("level_down")
-		_flash_msg(tr("MSG_LEVEL_DOWN"), Term.ERROR)
+		_flash_msg("%s\n%s" % [tr("MSG_STAGE_DOWN"), label], Term.ERROR)
 	_spawn_timer.wait_time = Tuning.spawn_interval(new_level)
-	_save_resume()
 	_update_hud()
-
-
-## The "continue" save: the start of the current level.
-func _save_resume() -> void:
-	Settings.set_resume({
-		"lang": lang,
-		"mode": mode,
-		"level": model.level,
-		"floor": model.floor_level,
-		"score": model.score,
-	})
 
 
 func _on_game_over() -> void:
@@ -596,13 +535,11 @@ func _on_game_over() -> void:
 		return
 	_ending = true
 	_spawn_timer.stop()
-	Speech.stop()
 	for w in _alive_words():
 		w.crash()
 	words.clear()
 	_flash_msg(tr("GAMEOVER_TITLE"), Term.ERROR)
 	Stats.save_data()
-	Settings.clear_resume()
 	var new_best := Settings.record_score(lang, model.score)
 	Settings.last_result = {
 		"lang": lang,
@@ -610,7 +547,7 @@ func _on_game_over() -> void:
 		"best": Settings.best_for(lang),
 		"high_score": Settings.high_score(),
 		"new_best": new_best,
-		"level": model.max_level_reached,
+		"level": Tuning.level_label(model.max_level_reached),
 		"words": model.words_done,
 		"missed": model.words_missed,
 		"accuracy": int(round(model.overall_accuracy() * 100.0)),
@@ -622,7 +559,6 @@ func _on_game_over() -> void:
 
 func _to_menu() -> void:
 	get_tree().paused = false
-	Speech.stop()
 	Stats.save_data()
 	Settings.record_score(lang, model.score)
 	get_tree().change_scene_to_file(MenuScene)
