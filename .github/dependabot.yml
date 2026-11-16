@@ -2,10 +2,12 @@
 # Godot itself is not a Dependabot ecosystem; see workflows/godot-update.yml.
 # tools/serve_web.py uses only the Python standard library, so there are no
 # pip packages to track; CI tests it on the latest Python 3 instead.
+# PRs target develop: main is protected and only changes through release PRs.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
     groups:

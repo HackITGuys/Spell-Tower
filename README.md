@@ -47,9 +47,30 @@ The tests never write the player's real settings or stats.
 - runs the unit tests and all smoke variants
 - exports the web build and uploads it as an artifact
 - checks `tools/serve_web.py` against the export on the latest Python 3
+- on `main` only: deploys to DigitalOcean (see [Releasing and publishing](#releasing-and-publishing))
 
 **Updates:** [Dependabot](.github/dependabot.yml) keeps the workflow actions patched, once a week.
-Dependabot can't track Godot, so [godot-update.yml](.github/workflows/godot-update.yml) does that weekly instead. It opens a PR for a new patch release (4.7.x) and an issue for a new minor or major release. It needs *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"* to be turned on.
+Dependabot can't track Godot, so [godot-update.yml](.github/workflows/godot-update.yml) does that weekly instead. It opens a PR for a new patch release (4.7.x) and an issue for a new minor or major release. Both open their PRs against `develop`. They need *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"* to be turned on.
+
+## Releasing and publishing
+`main` is protected and only changes through pull requests. Day-to-day work goes to `develop`, where CI tests every push.
+
+1. **Publish a GitHub Release** with `develop` as the target. [release-pr.yml](.github/workflows/release-pr.yml) opens a **"Release &lt;tag&gt;" PR from `develop` to `main`**. If one is already open, it adds a comment to it instead.
+2. **Merge the PR.** CI runs on `main`, and if the tests pass, the `deploy-digitalocean` job pushes the web export to the **`web-deploy`** branch, under `public/`. That branch is generated and replaced on every deploy, so don't edit it.
+3. **DigitalOcean App Platform** watches `web-deploy` and redeploys the static site automatically.
+
+To redeploy without a release, run *Actions → build → Run workflow* on `main` with "Publish this build to DigitalOcean" checked.
+
+**One-time DigitalOcean setup:**
+1. Turn on *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"*.
+2. Get these workflow files onto `main` with a first release PR. Merging it creates the `web-deploy` branch.
+3. In DigitalOcean, choose *Create App → GitHub*. Authorise the DigitalOcean GitHub App for the `HackITGuys` organisation (an org admin may need to approve it). Then pick the repo `Spell-Tower`, branch `web-deploy`, autodeploy on, and output directory `public`. Or apply the spec with `doctl apps create --spec .do/app.yaml` ([.do/app.yaml](.do/app.yaml)).
+
+**Cost:**
+- App Platform static-only apps are free, up to 3 apps. Each includes 1 GiB of outbound data a month, and further data costs $0.02/GiB.
+- One game load is about 38 MB (`index.wasm`), so 1,000 plays cost well under $1.
+- GitHub Actions minutes are free for public repos. Private repos on the Free plan get 2,000 minutes a month.
+- The export is single-threaded, so it doesn't need the COOP/COEP headers that App Platform static sites can't set.
 
 To also publish to GitHub Pages:
 1. Enable Pages with the source set to "GitHub Actions".
