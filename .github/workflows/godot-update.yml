@@ -3,6 +3,7 @@
 #   - newer patch in the same series (4.7.2 -> 4.7.3): opens a PR bumping .godot-version
 #   - newer minor/major (4.8, 5.0): opens an issue, since those need an editor upgrade
 #     and a project.godot change, not just a pin bump.
+# PRs target develop (main is protected and only changes through release PRs).
 # Needs: Settings -> Actions -> General -> "Allow GitHub Actions to create and approve pull requests".
 name: godot-update
 
@@ -22,11 +23,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: develop
 
       - name: Check for newer Godot releases
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          BASE_BRANCH: develop
         run: |
           set -euo pipefail
           newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]; }

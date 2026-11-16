@@ -1,0 +1,23 @@
+# DigitalOcean App Platform spec for the SpellTower web build (static site, free tier).
+#
+# App Platform can't run Godot, so it doesn't build anything: GitHub Actions
+# (.github/workflows/build.yml) exports the game and force-pushes the files to
+# the `web-deploy` branch under public/. This site redeploys on every push there.
+#
+# Applied once, either in the control panel (Create App -> GitHub -> this repo,
+# branch web-deploy, autodeploy on, output directory "public") or with:
+#   doctl apps create --spec .do/app.yaml
+# Later changes: doctl apps update <app-id> --spec .do/app.yaml
+#
+# No custom headers are needed: the Web export is single-threaded
+# (variant/thread_support=false), so it doesn't need COOP/COEP.
+name: spelltower
+static_sites:
+  - name: web
+    github:
+      repo: HackITGuys/Spell-Tower
+      branch: web-deploy
+      deploy_on_push: true
+    environment_slug: html
+    output_dir: public
+    index_document: index.html
