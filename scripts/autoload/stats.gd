@@ -24,6 +24,8 @@ var persist := true
 
 
 func _ready() -> void:
+	if not Settings.uses_profiles():
+		persist = false   # web: nothing is stored
 	use_profile(Settings.current_id())
 
 

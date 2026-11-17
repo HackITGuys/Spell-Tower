@@ -1,5 +1,5 @@
 keys,en,nb,nn
-LOCALE_NAME,English,Norsk bokmål,Norsk-ish
+LOCALE_NAME,English,Norsk bokmål,Norsk Sidemål
 APP_TITLE,SPELLTOWER,SPELLTOWER,SPELLTOWER
 APP_TAGLINE,type the words before they reach your tower,skriv ordene før de når tårnet ditt,skriv orda før dei når tårnet ditt
 MENU_UI_LANGUAGE,Interface language,Menyspråk,Menyspråk
@@ -68,4 +68,3 @@ OPT_OFF,Off,Av,Av
 MENU_ALL_TIME,all-time best: %s,beste noensinne: %s,beste nokon gong: %s
 GAMEOVER_PRACTISE,words to practise:,ord å øve på:,ordi au øvje på:
 GAMEOVER_ALL_TIME,all-time best: %s,beste noensinne: %s,beste nokon gong: %s
-MSG_TAP_TO_TYPE,tap the screen to open the keyboard,trykk på skjermen for å åpne tastaturet,trykk på skjermen for å opne alfabetplanken

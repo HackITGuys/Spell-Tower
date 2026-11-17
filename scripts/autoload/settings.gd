@@ -3,6 +3,9 @@ extends Node
 ##
 ## Each profile keeps its own preferences, start grade and scores.
 ## Nothing but the nickname identifies a player, and nothing leaves the device.
+##
+## The web version has no profiles and stores nothing: one guest profile per
+## page load (see uses_profiles()).
 ## The familiar properties (Settings.grade, Settings.ui_locale, …) read and write
 ## the current profile.
 
@@ -13,11 +16,11 @@ const PATH := "user://profiles.json"
 const VERSION := 1
 const NAME_MAX := 16
 ## How the player types, decided by platform (not a setting):
-##   "osk"         native mobile app -> the game's own on-screen keyboard
-##   "web_mobile"  browser on a phone/tablet -> the phone's own keyboard (WebKeys)
-##   "keys"        desktop app / desktop browser -> physical keyboard
+##   "osk"   touch device (mobile app, or a browser on a phone/tablet) -> the
+##           game's own on-screen keyboard; the phone's keyboard is never used
+##   "keys"  desktop app / desktop browser -> physical keyboard
+## Physical keys work in both modes.
 const INPUT_OSK := "osk"
-const INPUT_WEB_MOBILE := "web_mobile"
 const INPUT_KEYS := "keys"
 const FORBIDDEN_NAME_CHARS := "<>/\\:*?\"|{}[]#%&$@=+;`~^"
 
@@ -40,6 +43,9 @@ var persist := true
 var last_result := {}
 ## Tests can force an input mode (e.g. "osk" to build the on-screen keyboard).
 var force_input_mode := ""
+## Tests can pretend to run in a browser / on a touch screen (null = detect).
+var force_web: Variant = null
+var force_touch: Variant = null
 
 var _data := {"version": VERSION, "current": "", "profiles": {}}
 ## The current profile (a guest profile until one is created/selected).
@@ -70,6 +76,8 @@ var best: Dictionary:
 
 
 func _ready() -> void:
+	if not uses_profiles():
+		persist = false   # web: nothing is read or written
 	load_settings()
 
 
@@ -250,16 +258,30 @@ func effective_word_lang() -> String:
 	return "en"
 
 
+func is_web() -> bool:
+	return bool(force_web) if force_web != null else OS.has_feature("web")
+
+
+## Phones and tablets: native mobile apps, and browsers on a touch device
+## (iPadOS reports a desktop browser, so the web also checks for a touchscreen).
+func is_touch() -> bool:
+	if force_touch != null:
+		return bool(force_touch)
+	if OS.has_feature("android") or OS.has_feature("ios") 			or OS.has_feature("web_android") or OS.has_feature("web_ios"):
+		return true
+	return is_web() and DisplayServer.is_touchscreen_available()
+
+
+## The web version has no player profiles: it can't keep anything between
+## visits, so it's just settings + start grade + START.
+func uses_profiles() -> bool:
+	return not is_web()
+
+
 func input_mode() -> String:
 	if force_input_mode != "":
 		return force_input_mode
-	if OS.has_feature("web"):
-		if OS.has_feature("web_android") or OS.has_feature("web_ios"):
-			return INPUT_WEB_MOBILE
-		return INPUT_KEYS
-	if OS.has_feature("android") or OS.has_feature("ios"):
-		return INPUT_OSK
-	return INPUT_KEYS
+	return INPUT_OSK if is_touch() else INPUT_KEYS
 
 
 func show_keyboard() -> bool:

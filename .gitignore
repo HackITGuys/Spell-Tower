@@ -4,3 +4,9 @@
 
 # Build output
 /build/
+
+# Imported translations (generated from i18n/ui.csv on import)
+*.translation
+
+# LibreOffice lock files (e.g. while i18n/ui.csv is open in Calc)
+.~lock.*#

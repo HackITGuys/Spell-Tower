@@ -6,6 +6,11 @@ const MenuScene := "res://scenes/main_menu.tscn"
 const BAR_CHARS := 20
 const MAX_WIDTH := 960.0
 const PRACTICE_MAX := 12
+## On-screen keyboard height: this share of the screen height, within limits,
+## so the playfield stays visible on short (landscape) and tall phones alike.
+const KEYBOARD_SHARE := 0.2
+const KEYBOARD_MIN_HEIGHT := 200.0
+const KEYBOARD_MAX_HEIGHT := 320.0
 
 var model: ScoreModel
 var powers := PowerUps.new()
@@ -31,8 +36,6 @@ var _blink := 0.0
 var _prompt_flash := 0.0
 var _ending := false
 var _started := false
-var _web_mobile := false     ## typing through the phone's own keyboard (WebKeys)
-var _web_typed := false
 
 
 func _ready() -> void:
@@ -62,12 +65,7 @@ func _ready() -> void:
 		Sfx.play("earn")
 		_flash_msg(tr("MSG_POWERUP") % _power_name(kind), Term.ACCENT))
 
-	_web_mobile = Settings.input_mode() == Settings.INPUT_WEB_MOBILE
 	_build_ui()
-	if _web_mobile:
-		WebKeys.char_typed.connect(_on_web_char)
-		WebKeys.backspace.connect(_release)
-		WebKeys.set_active(true)
 	_update_hud()
 	_update_powers()
 	_flash_msg(tr("MSG_GET_READY"), Term.FG)
@@ -79,8 +77,6 @@ func _start_play() -> void:
 	if _ending:
 		return
 	_started = true
-	if _web_mobile and not _web_typed:
-		_flash_msg(tr("MSG_TAP_TO_TYPE"), Term.ACCENT)
 	_spawn()
 	_spawn_timer.start(Tuning.spawn_interval(model.level))
 
@@ -161,11 +157,12 @@ func _build_ui() -> void:
 	if Settings.show_keyboard():
 		_keyboard = OnScreenKeyboard.new()
 		_keyboard.process_mode = Node.PROCESS_MODE_PAUSABLE
-		_keyboard.custom_minimum_size.y = 260
 		_keyboard.set_layout(WordBank.lang_def.get("keyboard", []))
 		_keyboard.letter_pressed.connect(_handle_char)
 		_keyboard.release_pressed.connect(_release)
 		bottom_v.add_child(_keyboard)
+		resized.connect(_fit_keyboard)
+		_fit_keyboard()
 
 	_spawn_timer = Timer.new()
 	_spawn_timer.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -173,6 +170,11 @@ func _build_ui() -> void:
 	add_child(_spawn_timer)
 
 	_build_pause_panel()
+
+
+func _fit_keyboard() -> void:
+	if _keyboard != null:
+		_keyboard.custom_minimum_size.y = clampf(size.y * KEYBOARD_SHARE, KEYBOARD_MIN_HEIGHT, KEYBOARD_MAX_HEIGHT)
 
 
 func _small_button(parent: Control, on_press: Callable) -> Button:
@@ -404,7 +406,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_3, KEY_KP_3:
 			_use_power(PowerUps.SHAKE)
 		_:
-			if k.unicode > 0 and not _web_mobile:
+			if k.unicode > 0:
 				_handle_char(String.chr(k.unicode))
 
 
@@ -435,18 +437,6 @@ func _handle_char(raw: String) -> void:
 	_update_prompt()
 
 
-func _on_web_char(ch: String) -> void:
-	_web_typed = true
-	_handle_char(ch)
-
-
-func _exit_tree() -> void:
-	if _web_mobile:
-		WebKeys.set_active(false)
-		WebKeys.char_typed.disconnect(_on_web_char)
-		WebKeys.backspace.disconnect(_release)
-
-
 func _release() -> void:
 	targeting.release()
 	_update_prompt()
@@ -458,8 +448,6 @@ func _toggle_pause() -> void:
 	var p := not get_tree().paused
 	get_tree().paused = p
 	_pause_panel.visible = p
-	if _web_mobile:
-		WebKeys.set_active(not p)
 
 
 func _notification(what: int) -> void:
