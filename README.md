@@ -117,19 +117,46 @@ All automation is in [.github/workflows/](.github/workflows/):
 ## Releasing a new version
 `main` is protected: it only changes through pull requests, and what's on `main` is what's live. Day-to-day work goes to `develop`.
 
-1. **Finish on `develop`.** Push your changes and wait until the **build** run for that push is green in the *Actions* tab.
-2. **Publish a release.** *Releases → Draft a new release*:
-   - Create a new tag, e.g. `v0.3.0`.
-   - Set **Target: `develop`**.
-   - Add a title and notes ("Generate release notes" fills them from the commits).
+1. **Finish on `develop`.** Commit and push your changes:
+   ```sh
+   git switch develop
+   git pull                          # make sure you're up to date
+   git add -A
+   git commit -m "Describe the change"
+   git push
+   ```
+   Then wait until the **build** run for that push is green in the *Actions* tab.
+2. **Tag the version and upload the tag.** Use [semantic versioning](https://semver.org): `vMAJOR.MINOR.PATCH`, e.g. `v0.3.0`.
+   ```sh
+   git tag                                     # list existing tags, to pick the next number
+   git tag -a v0.3.0 -m "SpellTower v0.3.0"    # annotated tag on the current develop commit
+   git push origin v0.3.0                      # upload the tag to GitHub
+   ```
+   - **Mistyped tag (before publishing a release from it):**
+     ```sh
+     git tag -d v0.3.0
+     git push origin --delete v0.3.0
+     ```
+3. **Publish the release.** A tag alone starts nothing; the release does. *Releases → Draft a new release*:
+   - Choose the tag you just pushed (`v0.3.0`).
+   - Add a title and notes. "Generate release notes" fills them from the commits.
    - Click **Publish release**.
-3. **Wait for `release.yml`.** It builds and tests the release again. If everything passes:
+
+   With the [GitHub CLI](https://cli.github.com) installed, the same in one command: `gh release create v0.3.0 --verify-tag --title "v0.3.0" --generate-notes`.
+
+   *Without the command line:* in the release form, type a new tag name, set **Target: `develop`**, and GitHub creates the tag when you publish.
+4. **Wait for `release.yml`.** It builds and tests the release again. If everything passes:
    - The release gets its downloads: `SpellTower-<tag>-web.zip`, `-windows.exe`, `-linux.x86_64` and `-x86_64.AppImage`.
    - A **"Release &lt;tag&gt;" PR from `develop` to `main`** is opened. If one is already open, it gets a comment instead.
 
-   If a test fails, nothing is attached and no PR is opened. Fix it on `develop`, delete the release (and its tag), and publish again.
-4. **Review and merge the PR.** Approve it if your rules require that: it was opened by the bot, so you're allowed to.
-5. **Deploy happens by itself.**
+   If a test fails, nothing is attached and no PR is opened. Fix it on `develop`, then either release the next patch version (`v0.3.1`), or delete the release on GitHub, remove the tag (`git tag -d v0.3.0` and `git push origin --delete v0.3.0`) and start again from step 2.
+5. **Review and merge the PR.** Approve it if your rules require that: it was opened by the bot, so you're allowed to. Afterwards, bring the merge back to `develop`, so the two branches don't drift apart:
+   ```sh
+   git switch develop
+   git pull origin main
+   git push
+   ```
+6. **Deploy happens by itself.**
    - Merging updates `main`, and `build.yml` runs on it.
    - If it passes, the `deploy-digitalocean` job pushes the web build to the **`web-deploy`** branch, under `public/`. That branch is generated and replaced on every deploy, so don't edit it.
    - DigitalOcean notices the push and redeploys the site, usually within a few minutes.
