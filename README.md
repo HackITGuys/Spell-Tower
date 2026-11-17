@@ -15,7 +15,7 @@ A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward
 - Power-ups (keys **1/2/3** or the buttons): **AUTO** spells the current word, **CLEAR** wipes the screen, **SHAKE** swaps every word for new ones.
   - +1 AUTO for every 10 correctly spelled words, but every 3rd of those rewards is a SHAKE instead.
   - +1 CLEAR for every stage cleared.
-- **Esc** pauses the game.
+- **Esc** lets go of a locked word; with no word locked, it pauses the game.
 - **Typing** depends on the platform (it isn't a setting):
   - **Phone or tablet** (app or browser): the game's own on-screen keyboard. It has no autocorrect, its layout comes from the language file, and the phone's own keyboard never opens, so it can't cover the game.
   - **Desktop app or desktop browser:** the physical keyboard. A physical keyboard also works on touch devices.
@@ -107,7 +107,7 @@ godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- e
 - typing a falling word (by tapping keys, or on a real keyboard) destroys it and scores
 - pause and RESUME work by tap
 
-**How they reach the game:** Godot draws everything on one canvas, so there are no page buttons to click. A special **"Web (e2e)"** export includes a small test bridge ([test_bridge.gd](scripts/autoload/test_bridge.gd)) that publishes the game's state and the on-screen positions of buttons and keys. The normal web build doesn't contain it.
+**How they reach the game:** Godot draws everything on one canvas, so there are no page buttons to click. A small test bridge ([test_bridge.gd](scripts/autoload/test_bridge.gd)) publishes the game's state and the on-screen positions of buttons and keys. It's part of every build, but only switches on in the special **"Web (e2e)"** export; everywhere else it does nothing.
 
 **Run them locally:**
 ```sh
@@ -244,7 +244,7 @@ Android needs a signing keystore stored in repository secrets, so it isn't built
 |---|---|
 | `scenes/` | main menu, game, game over, falling word, on-screen keyboard, `< value >` stepper, width cap (UI built in code) |
 | `scripts/logic/` | pure, unit-tested rules: tuning, scoring, targeting, word picking, review queue, text normalisation, power-ups |
-| `scripts/autoload/` | settings, profiles and platform (web/touch), stats, word bank, locale, look (Term), sound (Sfx) |
+| `scripts/autoload/` | settings, profiles and platform (web/touch), stats, word bank, locale, look (Term), sound (Sfx), browser-test bridge (TestBridge) |
 | `tests/unit/` | GdUnit4 unit suites; `tests/smoke_game.gd` is the scripted playthrough |
 | `tests/e2e/` | Playwright browser function tests (Node project) |
 | `.github/workflows/`, `.github/rulesets/` | CI/CD and the branch/tag rules to import |
