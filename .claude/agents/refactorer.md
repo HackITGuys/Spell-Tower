@@ -34,7 +34,9 @@ You refactor the SpellTower Godot project without changing what the game does. R
    godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- en
    godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- nb
    godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- en 0
+   gdformat --line-length 120 scenes scripts tests && gdlint scenes scripts tests
    ```
+   If you renamed UI nodes or texts used by the browser tests (`tests/e2e/`), also export "Web (e2e)" and run `npx playwright test` in `tests/e2e`.
    Any non-zero exit is a failure. If something fails, fix it when the refactor caused it. If it failed before you started (e.g. word-list content), leave it and report it.
 4. Grep again for the old names to prove nothing is left.
 

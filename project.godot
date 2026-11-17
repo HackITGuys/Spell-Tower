@@ -23,6 +23,7 @@ WordBank="*res://scripts/autoload/word_bank.gd"
 Locale="*res://scripts/autoload/locale.gd"
 Term="*res://scripts/autoload/term.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
+TestBridge="*res://scripts/autoload/test_bridge.gd"
 
 [display]
 

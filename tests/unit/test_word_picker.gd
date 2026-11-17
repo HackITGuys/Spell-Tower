@@ -46,7 +46,38 @@ func test_word_picker() -> void:
 		all_blocked[c] = true
 	check(p.pick(3, all_blocked) == "", "returns empty when all initials blocked")
 	# Recent words are not repeated while alternatives exist.
-	var p2 := WordPicker.new({1: ["aa", "bb", "cc", "dd", "ee", "ff", "gg", "hh", "ii", "jj", "kk", "ll", "mm", "nn", "oo", "pp", "qq", "rr", "ss", "tt"]}, 7)
+	var p2 := (
+		WordPicker
+		. new(
+			{
+				1:
+				[
+					# Recent words are not repeated while alternatives exist.
+					"aa",
+					"bb",
+					"cc",
+					"dd",
+					"ee",
+					"ff",
+					"gg",
+					"hh",
+					"ii",
+					"jj",
+					"kk",
+					"ll",
+					"mm",
+					"nn",
+					"oo",
+					"pp",
+					"qq",
+					"rr",
+					"ss",
+					"tt"
+				]
+			},
+			7
+		)
+	)
 	var seen := {}
 	for i in Tuning.RECENT_MEMORY:
 		var w := p2.pick(1)

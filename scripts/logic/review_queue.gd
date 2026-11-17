@@ -12,8 +12,8 @@ extends RefCounted
 signal box_changed(word: String, box: int)
 
 var spawn_index := 0
-var _box := {}   ## word -> box
-var _due := {}   ## word -> spawn index when due
+var _box := {}  ## word -> box
+var _due := {}  ## word -> spawn index when due
 
 
 func size() -> int:

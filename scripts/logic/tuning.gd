@@ -55,9 +55,9 @@ const BAR_GAIN_MAX_FACTOR := 2.0
 # --- Penalties --------------------------------------------------------------
 ## Word reached the base: BASE * level_mult * (0.5 + accuracy) * streak_mult
 const MISS_BASE_PENALTY := 10.0
-const MISS_LEVEL_STEP := 0.05     # +5% per grade above 1
-const MISS_STREAK_STEP := 0.05    # +5% per streak word ...
-const MISS_STREAK_CAP := 10       # ... up to 10 words (= +50%)
+const MISS_LEVEL_STEP := 0.05  # +5% per grade above 1
+const MISS_STREAK_STEP := 0.05  # +5% per streak word ...
+const MISS_STREAK_CAP := 10  # ... up to 10 words (= +50%)
 ## Wrong letter costs this fraction of a miss.
 const WRONG_LETTER_FACTOR := 0.25
 ## Rolling accuracy window (word outcomes: clean 1.0, with mistakes 0.5, missed 0.0).
@@ -66,15 +66,15 @@ const ACCURACY_DEFAULT := 0.5
 
 # --- Score ----------------------------------------------------------------
 const POINTS_PER_VALUE := 10.0
-const COMBO_STEP := 0.1           # +10% per streak word
-const COMBO_CAP := 2.0            # max x3 total
+const COMBO_STEP := 0.1  # +10% per streak word
+const COMBO_CAP := 2.0  # max x3 total
 const CLEAR_POINTS_FACTOR := 0.5
 
 # --- Spawning / movement ------------------------------------------------
 ## Seconds a 4-letter word needs to fall the whole playfield at grade 1, stage 1
 ## (v0.1 used 14.0; /0.9 makes the default drop speed 0.9x). Pre-school is slower.
 const FALL_TIME_BASE := 14.0 / 0.9
-const FALL_TIME_DECAY := 0.92     # per grade
+const FALL_TIME_DECAY := 0.92  # per grade
 ## Speed-up per stage within a grade: +4% per stage (stage 5 = 1.16x stage 1).
 ## The next grade starts slower again (1.087x the previous grade's stage 1), and
 ## dropping back into the grade below lands on its fastest stage.
@@ -82,7 +82,7 @@ const FALL_STAGE_SPEEDUP := 0.04
 const FALL_TIME_MIN := 4.5
 const FALL_LENGTH_FACTOR := 0.05  # +5% fall time per letter beyond 4
 const SPAWN_INTERVAL_BASE := 2.8
-const SPAWN_INTERVAL_DECAY := 0.93   # per grade
+const SPAWN_INTERVAL_DECAY := 0.93  # per grade
 const SPAWN_INTERVAL_MIN := 0.8
 const MAX_WORDS_BASE := 3
 const MAX_WORDS_CAP := 7

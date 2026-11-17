@@ -22,19 +22,19 @@ const NAME_MAX := 16
 ## Physical keys work in both modes.
 const INPUT_OSK := "osk"
 const INPUT_KEYS := "keys"
-const FORBIDDEN_NAME_CHARS := "<>/\\:*?\"|{}[]#%&$@=+;`~^"
+const FORBIDDEN_NAME_CHARS := '<>/\\:*?"|{}[]#%&$@=+;`~^'
 
 const DEFAULTS := {
 	"name": "",
 	"anon_id": "",
-	"ui_locale": "",      # "" = OS language
-	"word_lang": "",      # "" = same as interface
-	"grade": Tuning.DEFAULT_GRADE,   # start grade: 0 = pre-school, 1..10
+	"ui_locale": "",  # "" = OS language
+	"word_lang": "",  # "" = same as interface
+	"grade": Tuning.DEFAULT_GRADE,  # start grade: 0 = pre-school, 1..10
 	"palette": "green",
 	"text_size": "m",
 	"sound": true,
-	"best": {},           # word lang -> best score
-	"high_score": 0,      # all-time, any language
+	"best": {},  # word lang -> best score
+	"high_score": 0,  # all-time, any language
 }
 
 ## Tests set this to false so they never touch the player's real files.
@@ -47,41 +47,57 @@ var force_input_mode := ""
 var force_web: Variant = null
 var force_touch: Variant = null
 
-var _data := {"version": VERSION, "current": "", "profiles": {}}
 ## The current profile (a guest profile until one is created/selected).
 var profile: Dictionary = DEFAULTS.duplicate(true)
 
 var ui_locale: String:
-	get: return str(profile.get("ui_locale", ""))
-	set(v): profile["ui_locale"] = v
+	get:
+		return str(profile.get("ui_locale", ""))
+	set(v):
+		profile["ui_locale"] = v
 var word_lang: String:
-	get: return str(profile.get("word_lang", ""))
-	set(v): profile["word_lang"] = v
+	get:
+		return str(profile.get("word_lang", ""))
+	set(v):
+		profile["word_lang"] = v
 ## Start grade: 0 = pre-school, 1..10. Every game starts at its first stage.
 var grade: int:
-	get: return clampi(int(profile.get("grade", Tuning.DEFAULT_GRADE)), Tuning.MIN_GRADE, Tuning.MAX_GRADE)
-	set(v): profile["grade"] = clampi(v, Tuning.MIN_GRADE, Tuning.MAX_GRADE)
+	get:
+		return clampi(int(profile.get("grade", Tuning.DEFAULT_GRADE)), Tuning.MIN_GRADE, Tuning.MAX_GRADE)
+	set(v):
+		profile["grade"] = clampi(v, Tuning.MIN_GRADE, Tuning.MAX_GRADE)
 var palette: String:
-	get: return str(profile.get("palette", "green"))
-	set(v): profile["palette"] = v
+	get:
+		return str(profile.get("palette", "green"))
+	set(v):
+		profile["palette"] = v
 var text_size: String:
-	get: return str(profile.get("text_size", "m"))
-	set(v): profile["text_size"] = v
+	get:
+		return str(profile.get("text_size", "m"))
+	set(v):
+		profile["text_size"] = v
 var sound: bool:
-	get: return bool(profile.get("sound", true))
-	set(v): profile["sound"] = v
+	get:
+		return bool(profile.get("sound", true))
+	set(v):
+		profile["sound"] = v
 var best: Dictionary:
-	get: return profile.get("best", {})
-	set(v): profile["best"] = v
+	get:
+		return profile.get("best", {})
+	set(v):
+		profile["best"] = v
+
+var _data := {"version": VERSION, "current": "", "profiles": {}}
 
 
 func _ready() -> void:
 	if not uses_profiles():
-		persist = false   # web: nothing is read or written
+		persist = false  # web: nothing is read or written
 	load_settings()
 
 
 # --- Persistence --------------------------------------------------------------
+
 
 func load_settings() -> void:
 	# Tests clear `persist` before the autoloads are ready; reading the real
@@ -136,6 +152,7 @@ static func _migrate(p: Dictionary) -> void:
 
 
 # --- Profiles -----------------------------------------------------------------
+
 
 func has_profiles() -> bool:
 	return not _data["profiles"].is_empty()
@@ -243,6 +260,7 @@ func _apply_profile() -> void:
 
 # --- Derived settings -----------------------------------------------------------
 
+
 ## Running level (see Tuning) a new game starts at: stage 1 of the start grade.
 func effective_start_level() -> int:
 	return Tuning.first_level_of_grade(grade)
@@ -267,8 +285,7 @@ func is_web() -> bool:
 func is_touch() -> bool:
 	if force_touch != null:
 		return bool(force_touch)
-	if OS.has_feature("android") or OS.has_feature("ios") \
-			or OS.has_feature("web_android") or OS.has_feature("web_ios"):
+	if OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("web_android") or OS.has_feature("web_ios"):
 		return true
 	return is_web() and DisplayServer.is_touchscreen_available()
 
@@ -290,6 +307,7 @@ func show_keyboard() -> bool:
 
 
 # --- Scores ------------------------------------------------------------------------
+
 
 func best_for(lang: String) -> int:
 	return int(best.get(lang, 0))

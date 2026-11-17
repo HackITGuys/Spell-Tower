@@ -64,7 +64,7 @@ func test_web_menu_has_no_player_screen() -> void:
 	assert_array(texts).contains(["[ " + tr("MENU_START") + " ]", tr("MENU_START_GRADE")])
 	assert_int(_count(menu, "LineEdit")).is_equal(0)
 	assert_int(_count(menu, "OptionButton")).is_equal(0)
-	assert_int(_count(menu, "Stepper")).is_equal(6)   # UI lang, word lang, grade, colour, size, sound
+	assert_int(_count(menu, "Stepper")).is_equal(6)  # UI lang, word lang, grade, colour, size, sound
 	Settings.force_web = was_web
 
 
@@ -77,7 +77,9 @@ func _texts(n: Node, out: Array = []) -> Array:
 
 
 func _count(n: Node, type_name: String) -> int:
-	var c := 1 if n.is_class(type_name) or (n.get_script() != null and n.get_script().get_global_name() == type_name) else 0
+	var c := (
+		1 if n.is_class(type_name) or (n.get_script() != null and n.get_script().get_global_name() == type_name) else 0
+	)
 	for child in n.get_children():
 		c += _count(child, type_name)
 	return c

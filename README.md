@@ -34,7 +34,14 @@ A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward
 You need:
 - **Godot 4.7.2**, the version pinned in [.godot-version](.godot-version), with the `godot` command on your PATH.
 - **Export templates** for that same version. In the editor: *Editor → Manage Export Templates → Download and Install*. They're needed for every build below.
-- **Python 3** (any recent version), only for the local web server.
+- **Python 3**, for the local web server and the commit checks.
+- **Node.js** (LTS), only to run the browser function tests locally.
+
+**Once per clone**, turn on the commit checks. The [pre-commit](https://pre-commit.com) tool runs gdtoolkit's formatter and linter on every commit:
+```sh
+pip install pre-commit
+pre-commit install
+```
 
 All commands run from the project folder. After cloning, and after changing `i18n/ui.csv`, word files or other assets, import once:
 ```sh
@@ -42,8 +49,24 @@ godot --headless --path . --import
 ```
 To play from source, run `godot --path .` (or press F5 in the editor).
 
+## Code style
+GDScript is formatted and linted with [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit) (`gdformat` and `gdlint`), pinned to v4.5.0.
+- **Line length:** 120.
+- **Linter settings:** in [gdlintrc](gdlintrc).
+- **Not checked:** `addons/` (vendored code).
+
+**On commit:** the pre-commit hook ([.pre-commit-config.yaml](.pre-commit-config.yaml)) runs both on the files you commit. If `gdformat` changes a file, the commit stops: `git add` the file again and commit. The hook also checks JSON/YAML syntax, line endings and trailing spaces.
+
+**By hand:**
+```sh
+pre-commit run --all-files                               # everything the hook checks
+gdformat --line-length 120 scenes scripts tests          # reformat
+gdlint scenes scripts tests                              # lint
+```
+**In CI:** the same checks run on every push to `develop` (`format and lint` in [checks.yml](.github/workflows/checks.yml)). A push that skipped the hook still gets caught there.
+
 ## Testing
-There are two kinds of tests. Both run headless (no window) and never touch your real players, settings or stats.
+There are three kinds of tests. None of them touch your real players, settings or stats.
 
 ### Unit tests (GdUnit4)
 [GdUnit4](https://github.com/godot-gdunit-labs/gdUnit4) is the test framework. It's vendored in `addons/gdUnit4/` (pinned to v6.2.3), so there's nothing to install.
@@ -75,12 +98,37 @@ godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- e
 - **Arguments:** the language, then an optional start grade (default 2).
 - **Result:** each run ends with `smoke[…]: OK` or a list of `FAIL` lines.
 
+### Browser function tests (Playwright)
+[Playwright](https://playwright.dev) plays the real web build in three browsers: an emulated **Pixel 7** (Chromium), an emulated **iPhone 14** (WebKit, Safari's engine) and **desktop Chrome**. The tests are in [tests/e2e/specs/](tests/e2e/specs/):
+- the menu has no player screen, and its pickers and START react to taps
+- touch devices get the game's own keyboard, and desktop gets none
+- taps never focus a page text field, so the phone's own keyboard never opens
+- the HUD, playfield and keyboard fit the screen without overlapping
+- typing a falling word (by tapping keys, or on a real keyboard) destroys it and scores
+- pause and RESUME work by tap
+
+**How they reach the game:** Godot draws everything on one canvas, so there are no page buttons to click. A special **"Web (e2e)"** export includes a small test bridge ([test_bridge.gd](scripts/autoload/test_bridge.gd)) that publishes the game's state and the on-screen positions of buttons and keys. The normal web build doesn't contain it.
+
+**Run them locally:**
+```sh
+godot --headless --path . --export-release "Web (e2e)" build/web-e2e/index.html
+cd tests/e2e
+npm ci                                   # first time: installs Playwright
+npx playwright install chromium webkit   # first time: downloads the browsers
+npx playwright test                      # starts tools/serve_web.py by itself
+npx playwright show-report               # open the HTML report
+```
+- **One device only:** `npx playwright test --project=pixel-7`. The others are `iphone-14` and `desktop-chrome`.
+- **Watch it play:** `npx playwright test --headed`.
+- **Limits:** emulation can't show a real phone's own keyboard or every browser quirk. Each release PR includes a short manual phone checklist for that.
+
 ## Building the versions locally
 Every build goes into `build/` (git-ignored). Run the import step first.
 
 | Version | Command | Output |
 |---|---|---|
 | Web | `godot --headless --path . --export-release "Web" build/web/index.html` | `build/web/` (`index.html`, `.js`, `.wasm`, `.pck`, …) |
+| Web (e2e) | `godot --headless --path . --export-release "Web (e2e)" build/web-e2e/index.html` | like Web, plus the test bridge. Only for the browser tests. |
 | Windows | `godot --headless --path . --export-release "Windows Desktop" build/windows/SpellTower.exe` | one portable `SpellTower.exe` |
 | Linux | `godot --headless --path . --export-release "Linux" build/linux/SpellTower.x86_64` | one binary, `SpellTower.x86_64` |
 
@@ -90,96 +138,96 @@ Every build goes into `build/` (git-ignored). Run the import step first.
   - The server sends no-cache headers, so after a new export a reload is enough.
 - **Try a desktop build:** just run the file. To check that it starts without opening a window: `build/windows/SpellTower.exe --headless --quit-after 300`. It should exit with code 0.
 - **Cross-exporting:** each export works from any OS, e.g. the Windows `.exe` can be built on Linux and the Linux binary on Windows.
-- **AppImage:** only built in CI (it needs Linux and `appimagetool`). To build one on Linux yourself, follow the *Build AppImage* step in [build.yml](.github/workflows/build.yml).
+- **AppImage:** only built in CI (it needs Linux and `appimagetool`). To build one on Linux yourself, follow the *Build AppImage* step in [release.yml](.github/workflows/release.yml).
 - **Export settings** live in [export_presets.cfg](export_presets.cfg):
   - Desktop builds embed the game data, so each is a single file.
   - Tests, tools, docs and GdUnit4 are left out of every build.
 
-## CI/CD pipeline
-All automation is in [.github/workflows/](.github/workflows/):
+## Branches and CI/CD
+| Branch | What it holds | Rules ([.github/rulesets/](.github/rulesets/)) |
+|---|---|---|
+| `develop` | day-to-day work | direct pushes allowed; no force-push or deletion. Every push runs the **checks**. |
+| `main` | **released versions only**; what's on `main` is what's live | changes only through a PR from `release/<tag>`. That needs the **release-gate** check (only a tag that passed the full release pipeline has it) and your approval, and it's merged with a merge commit. |
+| `release/<tag>` | created by the pipeline, pointing at a tagged commit | none; it's the PR source for `main` |
+| `web-deploy` | the live web build, generated | none; replaced on every deploy, so don't edit it |
+| tags `v*` | one per release, e.g. `v0.3.0`, always on `develop` | can't be moved once pushed |
+
+**Workflows** ([.github/workflows/](.github/workflows/)):
 
 | Workflow | Runs when | What it does |
 |---|---|---|
-| [build.yml](.github/workflows/build.yml) | every push (any branch except `web-deploy`), every PR, manual run | install Godot → import → **unit tests** → **smoke tests** (en, nb, pre-school) → **exports** (web, Windows, Linux, AppImage) → **launch checks** (Linux binary and AppImage on Ubuntu, `.exe` on Windows) → check `serve_web.py`. On `main` it also **deploys** the web version to DigitalOcean. |
-| [release.yml](.github/workflows/release.yml) | a GitHub Release is published | runs all of `build.yml` on the release; if it passes, attaches the builds to the release and opens the develop → main PR |
-| [godot-update.yml](.github/workflows/godot-update.yml) | weekly, or manual | PR to `develop` for a new Godot patch release; an issue for a new minor or major version |
-| [Dependabot](.github/dependabot.yml) | weekly | PRs to `develop` that keep the workflows' actions up to date |
+| [checks.yml](.github/workflows/checks.yml) | every push to `develop` or a feature branch, every PR into `develop` | **format and lint** (gdformat, gdlint) · **unit tests** (GdUnit4) · **smoke tests** (en, nb, nn, pre-school). A few minutes. |
+| [release.yml](.github/workflows/release.yml) | a tag `v*` is pushed | checks that the tag is `vMAJOR.MINOR.PATCH` and on `develop` → all **checks** → **builds** (web, web e2e, Windows, Linux, AppImage) → **launch checks** (Linux, AppImage, Windows) → **browser function tests** → **release-gate**: draft GitHub Release with the downloads, branch `release/<tag>`, and a PR into `main` |
+| [deploy.yml](.github/workflows/deploy.yml) | `main` changes (a release PR was merged), or by hand | deploys **exactly the tested web build** from that tag's release to `web-deploy` (DigitalOcean picks it up) and publishes the release |
+| [main-guard.yml](.github/workflows/main-guard.yml) | a PR into `main` opened by hand | explains early that `main` only takes release PRs |
+| [godot-update.yml](.github/workflows/godot-update.yml) | weekly, or by hand | PR to `develop` for a new Godot patch release; an issue for a new minor or major version |
+| [Dependabot](.github/dependabot.yml) | weekly | PRs to `develop` that update the workflows' actions and Playwright |
 
 - **Results:**
-  - A run's page in the *Actions* tab shows each step.
-  - At the bottom, under **Artifacts**, are `test-report` (the GdUnit4 HTML report) and the builds: `spelltower-web`, `spelltower-windows`, `spelltower-linux` and `spelltower-appimage`.
-  - So any push gives you downloadable builds, without a release.
-- **Run it by hand:** *Actions → build → Run workflow* and pick the branch.
-  - Tick "Publish this build to DigitalOcean" to deploy that branch's web build. Use `main` for this, unless you deliberately want something else live.
-- **Re-run a failed run:** open it and click *Re-run jobs*, e.g. after a network hiccup.
+  - A run's page in the *Actions* tab shows each job and step.
+  - Its **Artifacts** section has the reports (`unit-test-report`, and `e2e-report` with screenshots and traces of failures) and, for release runs, the builds.
+- **Run checks by hand:** *Actions → checks → Run workflow*, then pick the branch.
+- **Re-run a failed run:** open it and click *Re-run failed jobs*, e.g. after a network hiccup. A re-run of a release run updates its draft release and PR.
 - **Godot version:** CI always uses `.godot-version`. Changing that file (or merging the bot's PR) upgrades CI.
 
 ## Releasing a new version
-`main` is protected: it only changes through pull requests, and what's on `main` is what's live. Day-to-day work goes to `develop`.
-
-1. **Finish on `develop`.** Commit and push your changes:
+1. **Work on `develop`** and push. Each push runs **checks**; keep them green.
    ```sh
    git switch develop
-   git pull                          # make sure you're up to date
+   git pull
    git add -A
-   git commit -m "Describe the change"
+   git commit -m "Describe the change"     # the pre-commit hook formats and lints first
    git push
    ```
-   Then wait until the **build** run for that push is green in the *Actions* tab.
-2. **Tag the version and upload the tag.** Use [semantic versioning](https://semver.org): `vMAJOR.MINOR.PATCH`, e.g. `v0.3.0`.
+2. **Tag the version on `develop` and push the tag.** Use [semantic versioning](https://semver.org): `vMAJOR.MINOR.PATCH`.
    ```sh
-   git tag                                     # list existing tags, to pick the next number
-   git tag -a v0.3.0 -m "SpellTower v0.3.0"    # annotated tag on the current develop commit
-   git push origin v0.3.0                      # upload the tag to GitHub
+   git switch develop && git pull           # tag the latest develop commit
+   git tag                                  # existing tags, to pick the next number
+   git tag -a v0.3.0 -m "SpellTower v0.3.0"
+   git push origin v0.3.0                   # this starts the release pipeline
    ```
-   - **Mistyped tag (before publishing a release from it):**
-     ```sh
-     git tag -d v0.3.0
-     git push origin --delete v0.3.0
-     ```
-3. **Publish the release.** A tag alone starts nothing; the release does. *Releases → Draft a new release*:
-   - Choose the tag you just pushed (`v0.3.0`).
-   - Add a title and notes. "Generate release notes" fills them from the commits.
-   - Click **Publish release**.
+3. **Wait for the release pipeline** (*Actions → release*, about 15 minutes). If every job passes, **release-gate** creates:
+   - a **draft release** `v0.3.0` with the downloads: `SpellTower-v0.3.0-web.zip`, `-windows.exe`, `-linux.x86_64` and `-x86_64.AppImage`
+   - a **PR `release/v0.3.0` → `main`** called "Release v0.3.0", with a short manual phone checklist
 
-   With the [GitHub CLI](https://cli.github.com) installed, the same in one command: `gh release create v0.3.0 --verify-tag --title "v0.3.0" --generate-notes`.
-
-   *Without the command line:* in the release form, type a new tag name, set **Target: `develop`**, and GitHub creates the tag when you publish.
-4. **Wait for `release.yml`.** It builds and tests the release again. If everything passes:
-   - The release gets its downloads: `SpellTower-<tag>-web.zip`, `-windows.exe`, `-linux.x86_64` and `-x86_64.AppImage`.
-   - A **"Release &lt;tag&gt;" PR from `develop` to `main`** is opened. If one is already open, it gets a comment instead.
-
-   If a test fails, nothing is attached and no PR is opened. Fix it on `develop`, then either release the next patch version (`v0.3.1`), or delete the release on GitHub, remove the tag (`git tag -d v0.3.0` and `git push origin --delete v0.3.0`) and start again from step 2.
-5. **Review and merge the PR.** Approve it if your rules require that: it was opened by the bot, so you're allowed to. Afterwards, bring the merge back to `develop`, so the two branches don't drift apart:
+   **If a job fails:** nothing is created. Fix the problem on `develop`, then tag the next patch version (`v0.3.1`). Or, to reuse the number, delete the tag (`git push origin --delete v0.3.0` and `git tag -d v0.3.0`) and tag again.
+4. **Review and approve the PR, then merge it** with *Create a merge commit*, the only method `main` allows.
+5. **Deploy happens by itself.** [deploy.yml](.github/workflows/deploy.yml):
+   - deploys the tested web build to the `web-deploy` branch, and DigitalOcean redeploys within a few minutes (check the app's *Activity* tab)
+   - publishes the draft release, which becomes *Latest*
+6. **Bring `main` back into `develop`**, so the two don't drift apart:
    ```sh
    git switch develop
    git pull origin main
    git push
    ```
-6. **Deploy happens by itself.**
-   - Merging updates `main`, and `build.yml` runs on it.
-   - If it passes, the `deploy-digitalocean` job pushes the web build to the **`web-deploy`** branch, under `public/`. That branch is generated and replaced on every deploy, so don't edit it.
-   - DigitalOcean notices the push and redeploys the site, usually within a few minutes.
-   - Check the app's *Activity* tab in DigitalOcean, then reload the site.
 
-**Redeploy without a new release:** *Actions → build → Run workflow* on `main`, with "Publish this build to DigitalOcean" ticked.
-
-A stricter gate, where browser tests run *before* a release is published, is proposed in [docs/release-testing.md](docs/release-testing.md).
+**Redeploy an older release:** *Actions → deploy → Run workflow*, and enter its tag.
 
 ### One-time setup
-1. **Let Actions open PRs:** turn on *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"*. The workflows only open PRs; they never approve or merge them.
-2. **Branch protection:** the rule must apply to `main` only, not to all branches. Otherwise the bot can't push `web-deploy`.
-3. **First release:** get these workflow files onto `main` with a first release PR. Merging it creates the `web-deploy` branch.
-4. **DigitalOcean:**
+1. **Repository settings:**
+   - *Settings → Actions → General*: turn on "Allow GitHub Actions to create and approve pull requests". The workflows only open PRs; they never approve or merge them.
+   - *Settings → General → Pull Requests*: allow merge commits, and turn on "Automatically delete head branches" so `release/*` branches are tidied up.
+2. **Import the rulesets:**
+   - Go to *Settings → Rules → Rulesets → New ruleset → Import a ruleset*, and import [main.json](.github/rulesets/main.json), [develop.json](.github/rulesets/develop.json) and [release-tags.json](.github/rulesets/release-tags.json) one by one.
+   - Remove any older branch protection rules for `main`/`develop` (*Settings → Branches*), so only the rulesets apply.
+   - **Note:** `main` requires the **release-gate** check. GitHub only offers a check in its list after the check has run once, but the imported file already names it.
+3. **Turn on the commit checks** in your clone (see [Development setup](#development-setup)).
+4. **First release:**
+   - Push these files to `develop`, then tag and push `v0.3.0` (or your next number).
+   - Merging its PR creates the `web-deploy` branch.
+5. **DigitalOcean:**
    - Choose *Create App → GitHub*, and authorise the DigitalOcean GitHub App for the `HackITGuys` organisation (an org admin may need to approve it).
    - Pick the repo `Spell-Tower`, branch **`web-deploy`**, autodeploy on, and output directory `public`. It's a static site with no build command.
    - Or apply the spec instead: `doctl apps create --spec .do/app.yaml` ([.do/app.yaml](.do/app.yaml)).
-5. **GitHub Pages (optional):** to also publish there, enable Pages with the source set to "GitHub Actions" and set the repository variable `DEPLOY_PAGES=true`.
+6. **GitHub Pages (optional):** to also publish there, enable Pages with the source set to "GitHub Actions" and set the repository variable `DEPLOY_PAGES=true`.
 
 ### Cost
 - **DigitalOcean:** App Platform static-only apps are free, up to 3 apps. Each includes 1 GiB of outbound data a month, and further data costs $0.02/GiB.
 - **Traffic:** one game load is about 40 MB (`index.wasm`), so 1,000 plays cost about $1.
-- **GitHub Actions:** minutes are free for public repos. Private repos on the Free plan get 2,000 minutes a month.
+- **GitHub Actions:**
+  - Minutes are free for public repos. Private repos on the Free plan get 2,000 minutes a month.
+  - A `checks` run takes a few minutes, and a full release run about 15. Windows minutes count double on private repos.
 - **Headers:** the web export is single-threaded, so it doesn't need the COOP/COEP headers that App Platform static sites can't set.
 
 ## Desktop downloads
@@ -198,13 +246,15 @@ Android needs a signing keystore stored in repository secrets, so it isn't built
 | `scripts/logic/` | pure, unit-tested rules: tuning, scoring, targeting, word picking, review queue, text normalisation, power-ups |
 | `scripts/autoload/` | settings, profiles and platform (web/touch), stats, word bank, locale, look (Term), sound (Sfx) |
 | `tests/unit/` | GdUnit4 unit suites; `tests/smoke_game.gd` is the scripted playthrough |
+| `tests/e2e/` | Playwright browser function tests (Node project) |
+| `.github/workflows/`, `.github/rulesets/` | CI/CD and the branch/tag rules to import |
 | `addons/gdUnit4/` | the GdUnit4 test framework (vendored, v6.2.3) |
 | `.claude/agents/` | Claude Code agents for consistency reviews and refactoring (rules in [CLAUDE.md](CLAUDE.md)) |
 | `data/` | language manifest + word banks |
 | `i18n/ui.csv` | UI strings, one column per locale |
 | `docs/languages-and-difficulty.md` | how to add languages, and the difficulty/server design |
 | `docs/style-guide.md` | the series' visual and interaction style |
-| `docs/release-testing.md` | proposal: browser tests before a release is published |
+| `docs/release-testing.md` | how releases are tested, and what isn't covered yet |
 
 All gameplay numbers live in [scripts/logic/tuning.gd](scripts/logic/tuning.gd).
 
@@ -234,7 +284,6 @@ Avoid ads in the child-facing app. A server-side subscription (3) fits best with
 
 ## Status / TODO
 - Android export, signing and device testing
-- Release gate with browser end-to-end tests (proposal: [docs/release-testing.md](docs/release-testing.md))
 - Server: word-list upload, stats sync and dynamic difficulty (see docs)
 - More languages. The Norwegian lists (bokmål `nb`, nynorsk `nn`) are ~310-word samples that need review by a native speaker.
 - Extract `terminal_kit` before game 2

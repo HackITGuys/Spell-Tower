@@ -10,11 +10,11 @@ extends Node
 
 const MANIFEST := "res://data/languages.json"
 
-var languages: Array = []          ## manifest entries (Dictionary)
-var lang := ""                     ## currently loaded word language
+var languages: Array = []  ## manifest entries (Dictionary)
+var lang := ""  ## currently loaded word language
 var lang_def: Dictionary = {}
 var norm := TextNorm.new()
-var entries: Dictionary = {}       ## word -> {id, w, d, concept}
+var entries: Dictionary = {}  ## word -> {id, w, d, concept}
 ## Object with local_adjust(lang, word) -> int. The Stats autoload at runtime.
 var stats_provider: Object = null
 ## Future: word -> int, filled from the server (see docs). Always empty in v1.

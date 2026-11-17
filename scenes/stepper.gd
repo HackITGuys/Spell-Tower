@@ -83,7 +83,7 @@ func _arrow(text: String, delta: int) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size.x = ARROW_MIN_WIDTH
-	b.focus_mode = Control.FOCUS_NONE   # taps don't move keyboard focus
+	b.focus_mode = Control.FOCUS_NONE  # taps don't move keyboard focus
 	b.pressed.connect(step.bind(delta))
 	add_child(b)
 	return b
@@ -92,7 +92,7 @@ func _arrow(text: String, delta: int) -> Button:
 func _on_value_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_left"):
 		step(-1)
-		_value.accept_event()   # don't also move focus to a neighbour
+		_value.accept_event()  # don't also move focus to a neighbour
 	elif event.is_action_pressed("ui_right"):
 		step(1)
 		_value.accept_event()

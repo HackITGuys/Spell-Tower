@@ -11,8 +11,8 @@ const BACK := "<-"
 const GAP := 6.0
 
 var rows: Array = []
-var _keys: Array[Dictionary] = []   ## {rect: Rect2, ch: String}
-var _lit := {}                      ## key index -> remaining highlight time
+var _keys: Array[Dictionary] = []  ## {rect: Rect2, ch: String}
+var _lit := {}  ## key index -> remaining highlight time
 var _key_size := Vector2(60, 72)
 
 
@@ -67,9 +67,12 @@ func _input(event: InputEvent) -> void:
 	var pos := Vector2.INF
 	if event is InputEventScreenTouch and event.pressed:
 		pos = event.position
-	elif event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT \
-			and event.device != InputEvent.DEVICE_ID_EMULATION:
+	elif (
+		event is InputEventMouseButton
+		and event.pressed
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and event.device != InputEvent.DEVICE_ID_EMULATION
+	):
 		pos = event.position
 	if pos == Vector2.INF:
 		return
@@ -108,6 +111,7 @@ func _draw() -> void:
 		draw_rect(r, Term.FG if not lit else Term.ACCENT, false, 2.0)
 		var label: String = _keys[i]["ch"]
 		var ts := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-		var p := r.position + Vector2((r.size.x - ts.x) / 2.0,
-				(r.size.y - font.get_height(fs)) / 2.0 + font.get_ascent(fs))
+		var p := (
+			r.position + Vector2((r.size.x - ts.x) / 2.0, (r.size.y - font.get_height(fs)) / 2.0 + font.get_ascent(fs))
+		)
 		draw_string(font, p, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Term.BG if lit else Term.FG)

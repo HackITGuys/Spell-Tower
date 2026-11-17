@@ -1,0 +1,16 @@
+{
+  "name": "release tags: never moved",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/tags/v*"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "update" },
+    { "type": "non_fast_forward" }
+  ],
+  "bypass_actors": []
+}

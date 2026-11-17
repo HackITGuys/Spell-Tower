@@ -1,98 +1,264 @@
-# Publishing a GitHub Release (target: develop):
-#   1. build.yml runs on the release's commit: unit tests, smoke tests, all
-#      exports and the desktop launch checks.
-#   2. If everything passes, the builds are attached to the release:
-#      web zip, portable Windows .exe, Linux binary and AppImage.
-#   3. A "Release <tag>" PR from develop to main is opened (or commented on).
-#      Merging it updates main, and build.yml then deploys to DigitalOcean.
-# If a test fails, no files are attached and no PR is opened.
+# Release pipeline: runs when a version tag (v1.2.3) is pushed. The tag must be on develop.
 #
-# The PR's head is develop's latest commit, which build.yml already tested on
-# push, so the required checks are there even though a PR opened with the
-# workflow token doesn't start a new run.
+#   verify-tag      tag looks like vMAJOR.MINOR.PATCH and points at a develop commit
+#   checks          format, lint, unit and smoke tests (checks.yml)
+#   build           web, web (e2e), Windows .exe, Linux binary, AppImage + Linux launch checks
+#   launch-windows  the .exe starts and quits cleanly on Windows
+#   e2e             browser function tests (Playwright: Pixel 7, iPhone 14, desktop Chrome)
+#   release-gate    all of the above passed: draft GitHub Release with the builds,
+#                   branch release/<tag> at the tagged commit, PR release/<tag> -> main
+#
+# main's ruleset requires the "release-gate" check, so only a tagged commit that passed
+# everything can be merged into main. Merging deploys it (deploy.yml).
 # Needs: Settings -> Actions -> General -> "Allow GitHub Actions to create and approve pull requests".
-# Proposal for a stricter gate (tests before the release is published):
-# docs/release-testing.md.
 name: release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-  BASE: main
-  HEAD_BRANCH: develop
+  APPIMAGETOOL_VERSION: "1.9.1"
 
 jobs:
-  build:
-    uses: ./.github/workflows/build.yml
-    # A called workflow can't use more token permissions than this job grants.
-    # build.yml's deploy jobs ask for these, but they're skipped for releases
-    # (they only run for pushes to main or a manual "deploy" run).
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
+  verify-tag:
+    name: verify tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Tag is vMAJOR.MINOR.PATCH on develop
+        run: |
+          set -euo pipefail
+          TAG="$GITHUB_REF_NAME"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH (e.g. v1.2.3)"; exit 1; }
+          git fetch --quiet origin develop
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/develop \
+            || { echo "::error::Tag $TAG ($GITHUB_SHA) is not on develop. Tag a develop commit."; exit 1; }
+          echo "Tag $TAG -> $GITHUB_SHA (on develop)" >> "$GITHUB_STEP_SUMMARY"
 
-  attach-builds:
+  checks:
+    needs: verify-tag
+    uses: ./.github/workflows/checks.yml
+
+  build:
+    needs: verify-tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read Godot version
+        id: godot
+        run: |
+          V=$(tr -d '[:space:]' < .godot-version); V=${V%-stable}
+          [ "$(echo "$V" | tr -cd . | wc -c)" -eq 1 ] && V="$V.0"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ steps.godot.outputs.version }}
+          use-dotnet: false
+          include-templates: true
+
+      - name: Import assets
+        run: godot --headless --path . --import
+
+      - name: Export all versions
+        run: |
+          set -euo pipefail
+          mkdir -p build/web build/web-e2e build/windows build/linux
+          godot --headless --path . --export-release "Web" build/web/index.html
+          godot --headless --path . --export-release "Web (e2e)" build/web-e2e/index.html
+          godot --headless --path . --export-release "Windows Desktop" build/windows/SpellTower.exe
+          godot --headless --path . --export-release "Linux" build/linux/SpellTower.x86_64
+          test -f build/web/index.pck && test -f build/web-e2e/index.pck
+          # desktop builds are single files: the game data is embedded
+          test ! -e build/windows/SpellTower.pck && test ! -e build/linux/SpellTower.pck
+
+      # tools/serve_web.py must still serve the export correctly (headers, MIME types).
+      - name: Check the local web server
+        run: |
+          set -euo pipefail
+          python3 tools/serve_web.py --port 8060 &
+          SERVER=$!
+          for _ in $(seq 1 20); do curl -fsS -o /dev/null http://127.0.0.1:8060/ && break; sleep 0.5; done
+          H="$RUNNER_TEMP/headers.txt"
+          curl -fsSI http://127.0.0.1:8060/index.wasm | tee "$H"
+          grep -qi '^content-type: application/wasm' "$H"
+          grep -qi '^cache-control: no-store' "$H"
+          kill "$SERVER"
+
+      - name: Launch check (Linux binary)
+        run: |
+          set -euo pipefail
+          chmod +x build/linux/SpellTower.x86_64
+          LOG="$RUNNER_TEMP/linux.log"
+          build/linux/SpellTower.x86_64 --headless --quit-after 300 2>&1 | tee "$LOG"
+          ! grep -E "SCRIPT ERROR|^ERROR" "$LOG"
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1" # runners have no FUSE
+          ARCH: x86_64
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq librsvg2-bin > /dev/null
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
+            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          A="$RUNNER_TEMP/SpellTower.AppDir"
+          mkdir -p "$A/usr/bin"
+          cp build/linux/SpellTower.x86_64 "$A/usr/bin/"
+          rsvg-convert -w 256 -h 256 icon.svg -o "$A/spelltower.png"
+          printf '%s\n' '#!/bin/sh' 'HERE="$(dirname "$(readlink -f "$0")")"' 'exec "$HERE/usr/bin/SpellTower.x86_64" "$@"' > "$A/AppRun"
+          chmod +x "$A/AppRun"
+          printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=SpellTower' 'Comment=Spelling game' \
+            'Exec=SpellTower.x86_64' 'Icon=spelltower' 'Categories=Game;Education;' 'Terminal=false' > "$A/spelltower.desktop"
+          mkdir -p build/appimage
+          "$RUNNER_TEMP/appimagetool" "$A" build/appimage/SpellTower-x86_64.AppImage
+
+      - name: Launch check (AppImage)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          set -euo pipefail
+          LOG="$RUNNER_TEMP/appimage.log"
+          build/appimage/SpellTower-x86_64.AppImage --headless --quit-after 300 2>&1 | tee "$LOG"
+          ! grep -E "SCRIPT ERROR|^ERROR" "$LOG"
+
+      - uses: actions/upload-artifact@v7
+        with: { name: spelltower-web, path: build/web }
+      - uses: actions/upload-artifact@v7
+        with: { name: spelltower-web-e2e, path: build/web-e2e }
+      - uses: actions/upload-artifact@v7
+        with: { name: spelltower-windows, path: build/windows/SpellTower.exe }
+      - uses: actions/upload-artifact@v7
+        with: { name: spelltower-linux, path: build/linux/SpellTower.x86_64 }
+      - uses: actions/upload-artifact@v7
+        with: { name: spelltower-appimage, path: build/appimage/SpellTower-x86_64.AppImage }
+
+  launch-windows:
+    name: launch check (Windows)
     needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: spelltower-windows
+      - name: Launch check (Windows .exe)
+        shell: pwsh
+        run: |
+          # A GUI .exe doesn't block the shell, so wait for it explicitly.
+          $p = Start-Process -FilePath .\SpellTower.exe -ArgumentList '--headless', '--quit-after', '300' `
+            -Wait -PassThru -NoNewWindow -RedirectStandardOutput out.log -RedirectStandardError err.log
+          Get-Content out.log, err.log
+          if ($p.ExitCode -ne 0) { throw "SpellTower.exe exited with $($p.ExitCode)" }
+          if (Select-String -Path out.log, err.log -Pattern 'SCRIPT ERROR|^ERROR' -Quiet) { throw "errors while starting" }
+
+  e2e:
+    name: browser function tests
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests/e2e
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: spelltower-web-e2e
+          path: build/web-e2e
+      - uses: actions/setup-python@v7 # tools/serve_web.py serves the build
+        with:
+          python-version: "3.x"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: tests/e2e/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Playwright
+        run: npx playwright test
+        env:
+          CI: "true"
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+          if-no-files-found: ignore
+
+  release-gate:
+    name: release-gate # required status check on main (see .github/rulesets/main.json)
+    needs: [checks, build, launch-windows, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/download-artifact@v8
         with:
           pattern: spelltower-*
           path: dist
 
-      - name: Attach builds to the release
+      - name: Draft release, release branch and PR to main
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          R="$GITHUB_REPOSITORY"; TAG="$GITHUB_REF_NAME"; SHA="$GITHUB_SHA"
           cd dist
           (cd spelltower-web && zip -qr "../SpellTower-${TAG}-web.zip" .)
           cp spelltower-windows/SpellTower.exe "SpellTower-${TAG}-windows.exe"
           cp spelltower-linux/SpellTower.x86_64 "SpellTower-${TAG}-linux.x86_64"
           cp spelltower-appimage/SpellTower-x86_64.AppImage "SpellTower-${TAG}-x86_64.AppImage"
-          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber \
-            "SpellTower-${TAG}-web.zip" "SpellTower-${TAG}-windows.exe" \
-            "SpellTower-${TAG}-linux.x86_64" "SpellTower-${TAG}-x86_64.AppImage"
-          ls -l SpellTower-* >> "$GITHUB_STEP_SUMMARY"
+          FILES=("SpellTower-${TAG}-web.zip" "SpellTower-${TAG}-windows.exe" "SpellTower-${TAG}-linux.x86_64" "SpellTower-${TAG}-x86_64.AppImage")
 
-  open-pr:
-    needs: [build, attach-builds]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Open the develop -> main release PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-          RELEASE_URL: ${{ github.event.release.html_url }}
-        run: |
-          set -euo pipefail
-          R="$GITHUB_REPOSITORY"
-
-          OPEN=$(gh pr list -R "$R" --base "$BASE" --head "$HEAD_BRANCH" --state open --json number -q '.[0].number // empty')
-          if [ -n "$OPEN" ]; then
-            gh pr comment "$OPEN" -R "$R" --body "Release [$TAG]($RELEASE_URL) was published and passed its tests. This PR now carries it too."
-            echo "Release PR #$OPEN is already open; added a comment for $TAG." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          # 1. Draft release with the builds (published when the PR is merged, by deploy.yml).
+          if gh release view "$TAG" -R "$R" > /dev/null 2>&1; then
+            gh release upload "$TAG" -R "$R" --clobber "${FILES[@]}"
+          else
+            gh release create "$TAG" -R "$R" --draft --verify-tag --title "SpellTower $TAG" --generate-notes "${FILES[@]}"
           fi
 
-          AHEAD=$(gh api "repos/$R/compare/$BASE...$HEAD_BRANCH" -q .ahead_by)
-          if [ "$AHEAD" = "0" ]; then
-            echo "::notice::$HEAD_BRANCH has no commits that aren't on $BASE; no release PR needed."
-            exit 0
+          # 2. Branch release/<tag> pointing exactly at the tagged commit.
+          BRANCH="release/$TAG"
+          if gh api "repos/$R/git/ref/heads/$BRANCH" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$R/git/refs/heads/$BRANCH" -f sha="$SHA" -F force=true > /dev/null
+          else
+            gh api "repos/$R/git/refs" -f ref="refs/heads/$BRANCH" -f sha="$SHA" > /dev/null
           fi
 
-          URL=$(gh pr create -R "$R" --base "$BASE" --head "$HEAD_BRANCH" \
-            --title "Release $TAG" \
-            --body "Release [$TAG]($RELEASE_URL): $AHEAD commit(s) from \`$HEAD_BRANCH\`. Tests, exports and launch checks passed.
+          # 3. PR into main (reuse an open one).
+          URL=$(gh pr list -R "$R" --base main --head "$BRANCH" --state open --json url -q '.[0].url // empty')
+          if [ -z "$URL" ]; then
+            URL=$(gh pr create -R "$R" --base main --head "$BRANCH" --title "Release $TAG" --body "Release **$TAG** (\`${SHA::7}\`, tagged on develop).
 
-          Merging this PR deploys the game to DigitalOcean (build.yml -> \`web-deploy\` branch).")
-          echo "Opened $URL" >> "$GITHUB_STEP_SUMMARY"
+          Passed: format and lint, unit and smoke tests, all exports, desktop launch checks, browser function tests (Pixel 7, iPhone 14, desktop Chrome). Run: $RUN_URL
+
+          The draft release with the downloads is under Releases. **Merging deploys the web version to DigitalOcean and publishes the release** (deploy.yml).
+
+          Optional manual check on a real phone before merging (download the web zip, or test the live site after merging):
+          - [ ] Android Chrome: the menu works by tap; play to game over; the phone keyboard never opens
+          - [ ] iPhone Safari: the same
+          - [ ] Landscape: everything is still usable")
+          fi
+          {
+            echo "### Release $TAG ready"
+            echo "- Draft release with ${#FILES[@]} files"
+            echo "- Branch \`$BRANCH\` at \`${SHA::7}\`"
+            echo "- PR: $URL"
+          } >> "$GITHUB_STEP_SUMMARY"

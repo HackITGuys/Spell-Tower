@@ -99,8 +99,7 @@ static func derive(base: Color) -> Dictionary:
 	var grey := base.s < 0.15
 	var bg := Color.from_hsv(base.h, 0.0 if grey else 0.6, 0.045)
 	var dim := base.lerp(bg, 0.45)
-	var accent := Color.from_hsv(0.13, 0.85, 1.0) if grey \
-			else Color.from_hsv(fposmod(base.h - 0.22, 1.0), 0.8, 1.0)
+	var accent := Color.from_hsv(0.13, 0.85, 1.0) if grey else Color.from_hsv(fposmod(base.h - 0.22, 1.0), 0.8, 1.0)
 	var error := Color.from_hsv(0.0, 0.75, 1.0)
 	for h in ERROR_HUES:
 		var far_from_base := grey or hue_gap(h, base.h) >= MIN_HUE_GAP

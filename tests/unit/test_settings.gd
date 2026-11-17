@@ -6,7 +6,10 @@ func test_profiles() -> void:
 	var s: Node = load("res://scripts/autoload/settings.gd").new()
 	s.persist = false
 	check(not s.has_profiles(), "starts empty")
-	check(s.sanitize_name("  anna   <b>marie  ") == "Anna bmarie", "sanitises names (got '%s')" % s.sanitize_name("  anna   <b>marie  "))
+	check(
+		s.sanitize_name("  anna   <b>marie  ") == "Anna bmarie",
+		"sanitises names (got '%s')" % s.sanitize_name("  anna   <b>marie  ")
+	)
 	check(s.sanitize_name("   ") == "", "blank name rejected")
 	check(s.sanitize_name("abcdefghijklmnopqrstuvwxyz").length() == s.NAME_MAX, "name length capped")
 	check(s.sanitize_name("øyvind") == "Øyvind", "non-ASCII names capitalised")
@@ -21,7 +24,10 @@ func test_profiles() -> void:
 	# Older profiles: age / start level -> start grade; removed keys dropped.
 	var old := {"age": 4, "start_level": 0, "mode": "listen", "resume": {"level": 3}}
 	s._migrate(old)
-	check(old.get("grade") == 0 and not old.has("age") and not old.has("mode") and not old.has("resume"), "age 4 -> pre-school (got %s)" % [old])
+	check(
+		old.get("grade") == 0 and not old.has("age") and not old.has("mode") and not old.has("resume"),
+		"age 4 -> pre-school (got %s)" % [old]
+	)
 	var old8 := {"age": 8, "start_level": 0}
 	s._migrate(old8)
 	check(old8.get("grade") == 3 and not old8.has("start_level"), "age 8 -> grade 3")

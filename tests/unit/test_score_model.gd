@@ -19,7 +19,10 @@ func test_score_model() -> void:
 	var bad := ScoreModel.new(5)
 	for i in 10:
 		bad.on_word_completed(5, 5, true)
-	check(good.miss_penalty() > bad.miss_penalty(), "doing well -> bigger miss penalty (%.1f vs %.1f)" % [good.miss_penalty(), bad.miss_penalty()])
+	check(
+		good.miss_penalty() > bad.miss_penalty(),
+		"doing well -> bigger miss penalty (%.1f vs %.1f)" % [good.miss_penalty(), bad.miss_penalty()]
+	)
 	var hi := ScoreModel.new(Tuning.first_level_of_grade(5))
 	var lo := ScoreModel.new(1)
 	check(hi.miss_penalty() > lo.miss_penalty(), "higher tier -> bigger penalty")
@@ -56,14 +59,19 @@ func test_score_model() -> void:
 	while grade_up.level == Tuning.STAGES_PER_GRADE and guard < 100:
 		grade_up.on_word_completed(0, 3, false)
 		guard += 1
-	check(Tuning.grade_for_level(grade_up.level) == 1 and Tuning.stage_for_level(grade_up.level) == 1,
-			"beating pre-school 5/5 goes to grade 1, 1/5 (got %s)" % Tuning.level_label(grade_up.level))
+	check(
+		Tuning.grade_for_level(grade_up.level) == 1 and Tuning.stage_for_level(grade_up.level) == 1,
+		"beating pre-school 5/5 goes to grade 1, 1/5 (got %s)" % Tuning.level_label(grade_up.level)
+	)
 	check(grade_up.score > 0, "pre-school words score points")
 	# Top level: the bar fills but there's nowhere higher to go.
 	var top := ScoreModel.new(Tuning.MAX_LEVEL)
 	for i in 50:
 		top.on_word_completed(10, 8, false)
-	check(top.level == Tuning.MAX_LEVEL and top.bar <= Tuning.BAR_MAX, "level capped at %s" % Tuning.level_label(Tuning.MAX_LEVEL))
+	check(
+		top.level == Tuning.MAX_LEVEL and top.bar <= Tuning.BAR_MAX,
+		"level capped at %s" % Tuning.level_label(Tuning.MAX_LEVEL)
+	)
 
 
 func test_power_ups() -> void:
@@ -100,8 +108,20 @@ func test_power_ups() -> void:
 			q.on_correct_word()
 		while q.use(PowerUps.AUTOSPELL):  # spend so the cap doesn't hide rewards
 			pass
-	check(seq == [PowerUps.AUTOSPELL, PowerUps.AUTOSPELL, PowerUps.SHAKE,
-			PowerUps.AUTOSPELL, PowerUps.AUTOSPELL, PowerUps.SHAKE], "reward order A A S A A S (got %s)" % [seq])
+	check(
+		(
+			seq
+			== [
+				PowerUps.AUTOSPELL,
+				PowerUps.AUTOSPELL,
+				PowerUps.SHAKE,
+				PowerUps.AUTOSPELL,
+				PowerUps.AUTOSPELL,
+				PowerUps.SHAKE
+			]
+		),
+		"reward order A A S A A S (got %s)" % [seq]
+	)
 
 	# CLEAR: one per level cleared.
 	var c := PowerUps.new()

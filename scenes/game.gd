@@ -1,16 +1,11 @@
 extends Control
 ## The playfield: words fall toward the base, the player types them.
 
-const GameOverScene := "res://scenes/game_over.tscn"
-const MenuScene := "res://scenes/main_menu.tscn"
+const GAME_OVER_SCENE := "res://scenes/game_over.tscn"
+const MENU_SCENE := "res://scenes/main_menu.tscn"
 const BAR_CHARS := 20
 const MAX_WIDTH := 960.0
 const PRACTICE_MAX := 12
-## On-screen keyboard height: this share of the screen height, within limits,
-## so the playfield stays visible on short (landscape) and tall phones alike.
-const KEYBOARD_SHARE := 0.2
-const KEYBOARD_MIN_HEIGHT := 200.0
-const KEYBOARD_MAX_HEIGHT := 320.0
 
 var model: ScoreModel
 var powers := PowerUps.new()
@@ -61,9 +56,11 @@ func _ready() -> void:
 	model.game_over.connect(_on_game_over)
 	model.bar_changed.connect(func(_v): _update_hud())
 	powers.changed.connect(_update_powers)
-	powers.earned.connect(func(kind):
-		Sfx.play("earn")
-		_flash_msg(tr("MSG_POWERUP") % _power_name(kind), Term.ACCENT))
+	powers.earned.connect(
+		func(kind):
+			Sfx.play("earn")
+			_flash_msg(tr("MSG_POWERUP") % _power_name(kind), Term.ACCENT)
+	)
 
 	_build_ui()
 	_update_hud()
@@ -82,6 +79,7 @@ func _start_play() -> void:
 
 
 # --- UI ---------------------------------------------------------------------
+
 
 func _build_ui() -> void:
 	var cap := WidthCap.new(MAX_WIDTH)
@@ -161,8 +159,6 @@ func _build_ui() -> void:
 		_keyboard.letter_pressed.connect(_handle_char)
 		_keyboard.release_pressed.connect(_release)
 		bottom_v.add_child(_keyboard)
-		resized.connect(_fit_keyboard)
-		_fit_keyboard()
 
 	_spawn_timer = Timer.new()
 	_spawn_timer.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -170,11 +166,6 @@ func _build_ui() -> void:
 	add_child(_spawn_timer)
 
 	_build_pause_panel()
-
-
-func _fit_keyboard() -> void:
-	if _keyboard != null:
-		_keyboard.custom_minimum_size.y = clampf(size.y * KEYBOARD_SHARE, KEYBOARD_MIN_HEIGHT, KEYBOARD_MAX_HEIGHT)
 
 
 func _small_button(parent: Control, on_press: Callable) -> Button:
@@ -217,8 +208,10 @@ func _build_pause_panel() -> void:
 func _update_hud() -> void:
 	if _hud_line == null:
 		return
-	_hud_line.text = "%s  %s %d  %s %d" % [
-		Tuning.level_label(model.level).to_upper(), tr("HUD_SCORE"), model.score, tr("HUD_STREAK"), model.streak]
+	_hud_line.text = (
+		"%s  %s %d  %s %d"
+		% [Tuning.level_label(model.level).to_upper(), tr("HUD_SCORE"), model.score, tr("HUD_STREAK"), model.streak]
+	)
 	var filled := int(round(model.bar / Tuning.BAR_MAX * BAR_CHARS))
 	_bar_line.text = "[%s%s] %3d%%" % ["█".repeat(filled), "░".repeat(BAR_CHARS - filled), int(model.bar)]
 	var col := Term.FG
@@ -317,6 +310,7 @@ func _shake(strength := 14.0) -> void:
 
 # --- Loop -------------------------------------------------------------------
 
+
 func _process(delta: float) -> void:
 	_blink += delta
 	_prompt_flash = maxf(0.0, _prompt_flash - delta)
@@ -340,8 +334,7 @@ func _spawn() -> void:
 		return
 	var fw := FallingWord.new()
 	var fall_time := Tuning.fall_time(model.level, txt.length())
-	fw.setup(txt, WordBank.effective_difficulty(txt), _playfield.size.y / fall_time,
-			Term.font, Term.sz(Term.WORD_SIZE))
+	fw.setup(txt, WordBank.effective_difficulty(txt), _playfield.size.y / fall_time, Term.font, Term.sz(Term.WORD_SIZE))
 	fw.position = Vector2(_free_x(fw.size.x), -fw.size.y)
 	_world.add_child(fw)
 	words.append(fw)
@@ -355,8 +348,7 @@ func _free_x(width: float) -> float:
 		var x := randf_range(8.0, max_x)
 		var ok := true
 		for w in _alive_words():
-			if w.position.y < w.size.y * 3.0 and x < w.position.x + w.size.x + 16.0 \
-					and w.position.x < x + width + 16.0:
+			if w.position.y < w.size.y * 3.0 and x < w.position.x + w.size.x + 16.0 and w.position.x < x + width + 16.0:
 				ok = false
 				break
 		if ok:
@@ -381,6 +373,7 @@ func _blocked_initials() -> Dictionary:
 
 
 # --- Input ------------------------------------------------------------------
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
@@ -451,12 +444,12 @@ func _toggle_pause() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _ending and is_inside_tree() \
-			and not get_tree().paused:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _ending and is_inside_tree() and not get_tree().paused:
 		_toggle_pause()
 
 
 # --- Events -----------------------------------------------------------------
+
 
 func _on_completed(w: FallingWord) -> void:
 	Sfx.play("hit")
@@ -488,9 +481,11 @@ func _on_missed(w: FallingWord) -> void:
 	w.crash()
 	_shake(8.0)
 	_base.add_theme_color_override("font_color", Term.ERROR)
-	get_tree().create_timer(0.3).timeout.connect(func():
-		if is_instance_valid(_base):
-			_base.remove_theme_color_override("font_color"))
+	get_tree().create_timer(0.3).timeout.connect(
+		func():
+			if is_instance_valid(_base):
+				_base.remove_theme_color_override("font_color")
+	)
 	_update_hud()
 
 
@@ -541,18 +536,18 @@ func _on_game_over() -> void:
 		"accuracy": int(round(model.overall_accuracy() * 100.0)),
 		"practice": practice.duplicate(),
 	}
-	get_tree().create_timer(1.5).timeout.connect(func():
-		get_tree().change_scene_to_file(GameOverScene))
+	get_tree().create_timer(1.5).timeout.connect(func(): get_tree().change_scene_to_file(GAME_OVER_SCENE))
 
 
 func _to_menu() -> void:
 	get_tree().paused = false
 	Stats.save_data()
 	Settings.record_score(lang, model.score)
-	get_tree().change_scene_to_file(MenuScene)
+	get_tree().change_scene_to_file(MENU_SCENE)
 
 
 # --- Power-ups ----------------------------------------------------------------
+
 
 func _use_power(kind: String) -> void:
 	if _ending or get_tree().paused or powers.count(kind) == 0:

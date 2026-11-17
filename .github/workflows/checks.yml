@@ -1,0 +1,79 @@
+# Base checks: every push to develop (and feature branches) and every PR into develop.
+# Also called by release.yml as the first part of the release pipeline.
+#   1. format and lint   gdformat --check + gdlint (gdtoolkit), same as the pre-commit hook
+#   2. unit and smoke    GdUnit4 suites (tests/unit/) + scripted playthroughs (tests/smoke_game.gd)
+# Fast on purpose (a few minutes): the full builds and browser tests run on release tags.
+name: checks
+
+on:
+  push:
+    branches-ignore: [main, web-deploy, "release/**"]
+  pull_request:
+    branches: [develop]
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  GDTOOLKIT_VERSION: "4.5.0" # keep in step with .pre-commit-config.yaml
+
+jobs:
+  format:
+    name: format and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - name: Install gdtoolkit
+        run: pip install "gdtoolkit==${GDTOOLKIT_VERSION}"
+      - name: Formatting (gdformat)
+        run: gdformat --check --diff --line-length 120 scenes scripts tests
+      - name: Lint (gdlint, settings in gdlintrc)
+        run: gdlint scenes scripts tests
+
+  test:
+    name: unit and smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The version is pinned in .godot-version ("4.7.2-stable"); godot-update.yml bumps it.
+      - name: Read Godot version
+        id: godot
+        run: |
+          V=$(tr -d '[:space:]' < .godot-version); V=${V%-stable}
+          [ "$(echo "$V" | tr -cd . | wc -c)" -eq 1 ] && V="$V.0"   # "4.8" -> "4.8.0"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ steps.godot.outputs.version }}
+          use-dotnet: false
+          include-templates: false
+
+      - name: Import assets
+        run: godot --headless --path . --import
+
+      # GdUnit4 exit codes: 0 ok, 100 failures, 101 orphan nodes (also a failure here).
+      - name: Unit tests (GdUnit4)
+        run: |
+          godot --headless --path . -s -d res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+            -a res://tests/unit --ignoreHeadlessMode -rd reports
+
+      - name: Upload unit test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-report
+          path: reports
+          if-no-files-found: ignore
+
+      - name: Smoke tests
+        run: |
+          set -e
+          for args in "en" "nb" "nn" "en 0"; do
+            echo "::group::smoke $args"
+            godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- $args
+            echo "::endgroup::"
+          done

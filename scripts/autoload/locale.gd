@@ -17,7 +17,8 @@ func _ready() -> void:
 func available() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var paths: PackedStringArray = ProjectSettings.get_setting(
-			"internationalization/locale/translations", PackedStringArray())
+		"internationalization/locale/translations", PackedStringArray()
+	)
 	for p in paths:
 		var t := load(p) as Translation
 		if t == null:

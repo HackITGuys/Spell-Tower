@@ -5,9 +5,9 @@ extends SceneTree
 ## User args: UI + word language (default en), optional start grade (default 2;
 ## 0 = pre-school).
 
-const PLAY_FRAMES := 60 * 90    # 90 s typing perfectly
-const IDLE_FRAMES := 60 * 480   # then stop typing until game over (falling back through
-                                # every stage climbed takes a few minutes of game time)
+const PLAY_FRAMES := 60 * 90  # 90 s typing perfectly
+const IDLE_FRAMES := 60 * 480  # then stop typing until game over (falling back through
+# every stage climbed takes a few minutes of game time)
 
 var _frame := 0
 var _game: Node
@@ -20,7 +20,7 @@ var _typed_words := 0
 var _non_ascii_words := 0
 var _game_ref: Node
 var _lang := "en"
-var _grade := 2   # enough nb words with æ/ø/å in the first pools
+var _grade := 2  # enough nb words with æ/ø/å in the first pools
 var _peak_score := 0
 
 
@@ -29,12 +29,12 @@ func _initialize() -> void:
 	settings.persist = false
 	root.get_node("Stats").persist = false
 	settings.best = {}
-	settings.force_input_mode = "osk"   # exercise the on-screen keyboard build
+	settings.force_input_mode = "osk"  # exercise the on-screen keyboard build
 	var args := OS.get_cmdline_user_args()
 	_lang = args[0] if args.size() > 0 else "en"
 	_grade = int(args[1]) if args.size() > 1 else _grade
 	settings.word_lang = _lang
-	settings.ui_locale = _lang   # Locale's _ready re-applies this after _initialize
+	settings.ui_locale = _lang  # Locale's _ready re-applies this after _initialize
 	settings.grade = _grade
 	root.get_node("Locale").apply(_lang)
 	if _active_locale() != _lang:
@@ -54,8 +54,10 @@ func _process(_delta: float) -> bool:
 		if _active_locale() != _lang:
 			_fail("UI locale %s not active in the game" % _lang)
 		if _start_level != Tuning.first_level_of_grade(_grade):
-			_fail("start grade %d should start at its first stage (got %s)" % [_grade, Tuning.level_label(_start_level)])
-		_game.model.level_changed.connect(func(_l, d): if d < 0: _saw_level_down = true)
+			_fail(
+				"start grade %d should start at its first stage (got %s)" % [_grade, Tuning.level_label(_start_level)]
+			)
+		_game.model.level_changed.connect(_on_level_changed)
 		_game.model.game_over.connect(func(): _game_over_seen = true)
 		return false
 
@@ -76,6 +78,11 @@ func _process(_delta: float) -> bool:
 		_fail("no game over after idling")
 		return _finish()
 	return false
+
+
+func _on_level_changed(_level: int, delta: int) -> void:
+	if delta < 0:
+		_saw_level_down = true
 
 
 func _type_one_letter() -> void:
@@ -112,7 +119,12 @@ func _fail(msg: String) -> void:
 func _finish() -> bool:
 	var settings := root.get_node("Settings")
 	var r: Dictionary = settings.last_result
-	print("start %s, max %s, typed %d words, level-down seen: %s" % [Tuning.level_label(_start_level), Tuning.level_label(_max_level), _typed_words, _saw_level_down])
+	print(
+		(
+			"start %s, max %s, typed %d words, level-down seen: %s"
+			% [Tuning.level_label(_start_level), Tuning.level_label(_max_level), _typed_words, _saw_level_down]
+		)
+	)
 	print("result: %s" % r)
 	if _game_lang() != _lang:
 		_fail("word language %s not used (got %s)" % [_lang, _game_lang()])
@@ -147,4 +159,3 @@ func _active_locale() -> String:
 
 func _game_lang() -> String:
 	return str(root.get_node("Settings").last_result.get("lang", ""))
-

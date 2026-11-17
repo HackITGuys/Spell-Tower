@@ -51,8 +51,11 @@ func combo_multiplier() -> float:
 
 
 func bar_gain_for(d: int) -> float:
-	var factor := clampf(Tuning.difficulty_weight(d) / Tuning.difficulty_weight(Tuning.grade_for_level(level)),
-			Tuning.BAR_GAIN_MIN_FACTOR, Tuning.BAR_GAIN_MAX_FACTOR)
+	var factor := clampf(
+		Tuning.difficulty_weight(d) / Tuning.difficulty_weight(Tuning.grade_for_level(level)),
+		Tuning.BAR_GAIN_MIN_FACTOR,
+		Tuning.BAR_GAIN_MAX_FACTOR
+	)
 	return Tuning.BAR_GAIN * factor
 
 
@@ -125,7 +128,7 @@ func _push_outcome(v: float) -> void:
 func _change_bar(delta: float) -> void:
 	bar += delta
 	if bar >= Tuning.BAR_MAX and level >= Tuning.MAX_LEVEL:
-		bar = Tuning.BAR_MAX   # top level: nothing left to unlock
+		bar = Tuning.BAR_MAX  # top level: nothing left to unlock
 	elif bar >= Tuning.BAR_MAX:
 		level += 1
 		max_level_reached = maxi(max_level_reached, level)

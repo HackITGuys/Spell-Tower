@@ -3,7 +3,9 @@ extends SpellTestSuite
 
 
 func test_translations() -> void:
-	var paths: PackedStringArray = ProjectSettings.get_setting("internationalization/locale/translations", PackedStringArray())
+	var paths: PackedStringArray = ProjectSettings.get_setting(
+		"internationalization/locale/translations", PackedStringArray()
+	)
 	check(paths.size() >= 2, "at least two UI locales registered")
 	var tables: Array[Translation] = []
 	for path in paths:
