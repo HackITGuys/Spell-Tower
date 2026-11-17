@@ -63,7 +63,7 @@ jobs:
 
           Update your local editor to $LATEST_PATCH too, so CI and local exports match."
               # Pushes made with GITHUB_TOKEN don't trigger push/pull_request runs; start the build explicitly.
-              gh workflow run build.yml --ref "$BRANCH"
+              gh workflow run checks.yml --ref "$BRANCH"
             fi
           fi
 

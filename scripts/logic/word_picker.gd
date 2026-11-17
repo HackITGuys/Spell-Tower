@@ -18,7 +18,7 @@ var tiers: Dictionary = {}
 var rng := RandomNumberGenerator.new()
 var recent: Array[String] = []
 var review: ReviewQueue = null
-var _bags := {}   ## grade -> Array[String], remaining words in shuffled order
+var _bags := {}  ## grade -> Array[String], remaining words in shuffled order
 var _bag_n := {}  ## grade -> pool size the bag was filled for
 var _order := {}  ## grade -> Array[String], this game's fixed shuffle of the grade
 

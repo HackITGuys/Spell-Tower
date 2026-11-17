@@ -27,6 +27,8 @@ const MIN_HUE_GAP := 0.12
 const FONT_SIZE := 26
 const TITLE_SIZE := 56
 const WORD_SIZE := 30
+## Touch drags shorter than this (px) are taps, not scrolls (ScrollContainer.scroll_deadzone).
+const SCROLL_DEADZONE := 24
 
 var BG := Color(0.02, 0.035, 0.02)
 var FG := Color(0.3, 1.0, 0.45)
@@ -97,8 +99,7 @@ static func derive(base: Color) -> Dictionary:
 	var grey := base.s < 0.15
 	var bg := Color.from_hsv(base.h, 0.0 if grey else 0.6, 0.045)
 	var dim := base.lerp(bg, 0.45)
-	var accent := Color.from_hsv(0.13, 0.85, 1.0) if grey \
-			else Color.from_hsv(fposmod(base.h - 0.22, 1.0), 0.8, 1.0)
+	var accent := Color.from_hsv(0.13, 0.85, 1.0) if grey else Color.from_hsv(fposmod(base.h - 0.22, 1.0), 0.8, 1.0)
 	var error := Color.from_hsv(0.0, 0.75, 1.0)
 	for h in ERROR_HUES:
 		var far_from_base := grey or hue_gap(h, base.h) >= MIN_HUE_GAP
@@ -120,7 +121,7 @@ func build_theme() -> Theme:
 	var pressed := _box(ACCENT, ACCENT)
 	var disabled := _box(BG, DIM)
 	var focus := _box(Color(0, 0, 0, 0), ACCENT, false)
-	for type in ["Button", "OptionButton"]:
+	for type in ["Button"]:
 		t.set_stylebox("normal", type, normal)
 		t.set_stylebox("hover", type, hover)
 		t.set_stylebox("pressed", type, pressed)

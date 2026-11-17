@@ -1,0 +1,26 @@
+# Checks that run before every local commit (https://pre-commit.com).
+# One-time setup:   pip install pre-commit   then   pre-commit install
+# Run on everything: pre-commit run --all-files
+# CI runs the same checks (.github/workflows/checks.yml), so keep versions in step.
+repos:
+  - repo: https://github.com/Scony/godot-gdscript-toolkit
+    rev: 4.5.0
+    hooks:
+      - id: gdformat          # reformats staged .gd files; re-add them and commit again
+        args: [--line-length=120]
+        exclude: ^addons/
+      - id: gdlint            # settings in gdlintrc
+        exclude: ^addons/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-json        # word lists and language manifest
+        files: ^data/
+      - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: ^addons/
+      - id: trailing-whitespace
+        exclude: ^(addons/|.*\.csv$)
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: ^addons/

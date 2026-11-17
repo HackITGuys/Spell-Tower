@@ -1,0 +1,12 @@
+{
+  "name": "spelltower-e2e",
+  "private": true,
+  "description": "Browser function tests for the SpellTower web build (Playwright). See README: Testing.",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}

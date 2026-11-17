@@ -14,7 +14,7 @@ By default the word language follows the interface language. They can differ on 
 ### Adding a UI locale
 1. Add a column to `i18n/ui.csv`, headed with the locale code (e.g. `de`). Fill every row, including `LOCALE_NAME` (the language's own name, e.g. `Deutsch`).
 2. Add `res://i18n/ui.<code>.translation` to `internationalization/locale/translations` in `project.godot`.
-3. Run `tests/run_tests.gd`. It fails if any key is missing for any locale.
+3. Run the unit tests (see the README's dev loop). `tests/unit/test_translations.gd` fails if any key is missing for any locale.
 
 ### Adding a word language
 1. Add an entry to `data/languages.json`:
@@ -45,7 +45,7 @@ By default the word language follows the interface language. They can differ on 
 ## 2. Word identity across languages
 
 ```
-entry = { id: "en:cat", w: "cat", d: 1, concept: "animal.cat" }
+entry = { id: "en:cat", w: "cat", d: 0, concept: "animal.cat" }
 ```
 
 - **`id` = `<lang>:<word>`** is the unit for all statistics and difficulty. "cat" (en) and "katt" (nb) are *different spelling problems*. They're never merged, even though they mean the same thing.
@@ -55,7 +55,8 @@ entry = { id: "en:cat", w: "cat", d: 1, concept: "animal.cat" }
 ## 3. Difficulty pipeline
 
 ```
-effective_difficulty(lang, word, grade) = clamp(base_d + local_adjust + server_adjust, 0, 10)
+effective_difficulty(word) = clamp(base_d + local_adjust + server_adjust, 0, 10)
+# server_adjust (future) would come per (lang, word, grade)
 ```
 
 | Term | v1 | Later |

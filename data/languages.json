@@ -18,6 +18,15 @@
       "keyboard": ["qwertyuiopå", "asdfghjkløæ", "zxcvbnm"],
       "casefold": {},
       "equivalents": { "ä": "æ", "ö": "ø" }
+    },
+    {
+      "code": "nn",
+      "name": "Norsk Sidemål",
+      "word_file": "res://data/words/nn.json",
+      "alphabet": "abcdefghijklmnopqrstuvwxyzæøå",
+      "keyboard": ["qwertyuiopå", "asdfghjkløæ", "zxcvbnm"],
+      "casefold": {},
+      "equivalents": { "ä": "æ", "ö": "ø" }
     }
   ]
 }

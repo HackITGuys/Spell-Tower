@@ -1,71 +1,70 @@
-keys,en,nb
-LOCALE_NAME,English,Norsk bokmål
-APP_TITLE,SPELLTOWER,SPELLTOWER
-APP_TAGLINE,type the words before they reach your tower,skriv ordene før de når tårnet ditt
-MENU_UI_LANGUAGE,Interface language,Menyspråk
-MENU_WORD_LANGUAGE,Word language,Ordspråk
-MENU_FOLLOW_UI,Same as interface,Samme som meny
-MENU_START_GRADE,Start grade,Starttrinn
-GRADE_PRESCHOOL,Pre-school,Førskole
-GRADE_N,Grade %s,%s. trinn
-MENU_START,START,START
-MENU_QUIT,QUIT,AVSLUTT
-MENU_BEST,best score: %s,rekord: %s
-MENU_HELP_1,type a falling word to destroy it,skriv et fallende ord for å fjerne det
-MENU_HELP_2,the first letter locks on - backspace lets go,første bokstav låser - tilbaketast slipper
-MENU_HELP_3,1 / 2 / 3 = power-ups   esc = pause,1 / 2 / 3 = kraftkort   esc = pause
-HUD_SCORE,SCORE,POENG
-HUD_STREAK,STREAK,REKKE
-POWER_AUTOSPELL,AUTO,AUTO
-POWER_CLEAR,CLEAR,TØM
-POWER_SHAKE,SHAKE,RIST
-MSG_STAGE_UP,STAGE UP,NESTE STEG
-MSG_STAGE_DOWN,STAGE DOWN,STEG NED
-MSG_GRADE_UP,NEW GRADE,NYTT TRINN
-MSG_MISSED,MISSED,BOM
-MSG_GET_READY,GET READY,GJØR DEG KLAR
-MSG_POWERUP,+1 %s,+1 %s
-GAME_PAUSED,PAUSED,PAUSE
-GAME_RESUME,RESUME,FORTSETT
-GAME_TO_MENU,MENU,MENY
-GAMEOVER_TITLE,GAME OVER,SPILLET ER SLUTT
-GAMEOVER_SCORE,score: %s,poeng: %s
-GAMEOVER_BEST,best: %s,rekord: %s
-GAMEOVER_REACHED,reached: %s,nådd: %s
-GAMEOVER_NEW_BEST,NEW BEST!,NY REKORD!
-GAMEOVER_WORDS,words: %s   missed: %s,ord: %s   bom: %s
-GAMEOVER_ACCURACY,accuracy: %s%%,treffsikkerhet: %s%%
-GAMEOVER_RETRY,RETRY,PRØV IGJEN
-GAMEOVER_MENU,MENU,MENY
-MENU_PLAYER,Player,Spiller
-MENU_NEW_PLAYER,+ new player,+ ny spiller
-MENU_DELETE_PLAYER,DELETE,SLETT
-MENU_DELETE_CONFIRM,SURE? TAP AGAIN,SIKKER? TRYKK IGJEN
-PROFILE_TITLE,Who is playing?,Hvem spiller?
-PROFILE_NAME,Name,Navn
-PROFILE_NAME_HINT,nickname,kallenavn
-PROFILE_GRADE,Grade,Trinn
-PROFILE_PRIVACY,Use a nickname. Everything is stored on this device only.,Bruk et kallenavn. Alt lagres bare på denne enheten.
-PROFILE_CREATE,OK,OK
-PROFILE_CANCEL,CANCEL,AVBRYT
-PROFILE_ERR_EMPTY,Type a name first,Skriv et navn først
-PROFILE_ERR_TAKEN,That name is already used,Det navnet er allerede i bruk
-MENU_COLOUR,Colour,Farge
-COLOR_GREEN,Neon green,Neongrønn
-COLOR_ORANGE,Neon orange,Neonoransje
-COLOR_CYAN,Cyan,Cyan
-COLOR_PINK,Pink,Rosa
-COLOR_PURPLE,Purple,Lilla
-COLOR_WHITE,White,Hvit
-MENU_TEXT_SIZE,Text size,Tekststørrelse
-TEXT_S,Small,Liten
-TEXT_M,Medium,Middels
-TEXT_L,Large,Stor
-TEXT_XL,Extra large,Ekstra stor
-MENU_SOUND,Sound,Lyd
-OPT_ON,On,På
-OPT_OFF,Off,Av
-MENU_ALL_TIME,all-time best: %s,beste noensinne: %s
-GAMEOVER_PRACTISE,words to practise:,ord å øve på:
-GAMEOVER_ALL_TIME,all-time best: %s,beste noensinne: %s
-MSG_TAP_TO_TYPE,tap the screen to open the keyboard,trykk på skjermen for å åpne tastaturet
+keys,en,nb,nn
+LOCALE_NAME,English,Norsk bokmål,Norsk Sidemål
+APP_TITLE,SPELLTOWER,SPELLTOWER,SPELLTOWER
+APP_TAGLINE,type the words before they reach your tower,skriv ordene før de når tårnet ditt,skriv orda før dei når tårnet ditt
+MENU_UI_LANGUAGE,Interface language,Menyspråk,Menyspråk
+MENU_WORD_LANGUAGE,Word language,Ordspråk,Ordspråk
+MENU_FOLLOW_UI,Same as interface,Samme som meny,Same som meny
+MENU_START_GRADE,Start grade,Starttrinn,Starttrinn
+GRADE_PRESCHOOL,Pre-school,Førskole,Førskule
+GRADE_N,Grade %s,%s. trinn,%s. trinn
+MENU_START,START,START,START
+MENU_QUIT,QUIT,AVSLUTT,AVSLUT
+MENU_BEST,best score: %s,rekord: %s,rekord: %s
+MENU_HELP_1,type a falling word to destroy it,skriv et fallende ord for å fjerne det,skriv eit fallande ord for å fjerne det
+MENU_HELP_2,the first letter locks on - backspace lets go,første bokstav låser - tilbaketast slipper,første bokstav låser - tilbaketast slepper
+MENU_HELP_3,1 / 2 / 3 = power-ups   esc = pause,1 / 2 / 3 = kraftkort   esc = pause,1 / 2 / 3 = kraftkort   esc = pause
+HUD_SCORE,SCORE,POENG,POENG
+HUD_STREAK,STREAK,REKKE,REKKJE
+POWER_AUTOSPELL,AUTO,AUTO,AUTO
+POWER_CLEAR,CLEAR,TØM,TØM
+POWER_SHAKE,SHAKE,RIST,RIST
+MSG_STAGE_UP,STAGE UP,NESTE STEG,NESTE STEG
+MSG_STAGE_DOWN,STAGE DOWN,STEG NED,STEG NED
+MSG_GRADE_UP,NEW GRADE,NYTT TRINN,NYTT TRINN
+MSG_MISSED,MISSED,BOM,BOM
+MSG_GET_READY,GET READY,GJØR DEG KLAR,GJER DEG KLAR
+MSG_POWERUP,+1 %s,+1 %s,+1 %s
+GAME_PAUSED,PAUSED,PAUSE,PAUSE
+GAME_RESUME,RESUME,FORTSETT,HALD FRAM
+GAME_TO_MENU,MENU,MENY,MENY
+GAMEOVER_TITLE,GAME OVER,SPILLET ER SLUTT,SPELET ER SLUTT
+GAMEOVER_SCORE,score: %s,poeng: %s,poeng: %s
+GAMEOVER_BEST,best: %s,rekord: %s,rekord: %s
+GAMEOVER_REACHED,reached: %s,nådd: %s,nådd: %s
+GAMEOVER_NEW_BEST,NEW BEST!,NY REKORD!,NY REKORD!
+GAMEOVER_WORDS,words: %s   missed: %s,ord: %s   bom: %s,ord: %s   bom: %s
+GAMEOVER_ACCURACY,accuracy: %s%%,treffsikkerhet: %s%%,trefftryggleik: %s%%
+GAMEOVER_RETRY,RETRY,PRØV IGJEN,PRØV IGJEN
+GAMEOVER_MENU,MENU,MENY,MENY
+MENU_PLAYER,Player,Spiller,Spelar
+MENU_NEW_PLAYER,+ new player,+ ny spiller,+ ny spelar
+MENU_DELETE_PLAYER,DELETE,SLETT,SLETT
+MENU_DELETE_CONFIRM,SURE? TAP AGAIN,SIKKER? TRYKK IGJEN,SIKKER? TRYKK IGJEN
+PROFILE_TITLE,Who is playing?,Hvem spiller?,Kven spelar?
+PROFILE_NAME,Name,Navn,Namn
+PROFILE_NAME_HINT,nickname,kallenavn,kallenamn
+PROFILE_GRADE,Grade,Trinn,Trinn
+PROFILE_PRIVACY,Use a nickname. Everything is stored on this device only.,Bruk et kallenavn. Alt lagres bare på denne enheten.,Bruk eit kallenamn. Alt blir berre lagra på denne eininga.
+PROFILE_CREATE,OK,OK,OK
+PROFILE_CANCEL,CANCEL,AVBRYT,AVBRYT
+PROFILE_ERR_EMPTY,Type a name first,Skriv et navn først,Skriv eit namn fyst
+PROFILE_ERR_TAKEN,That name is already used,Det navnet er allerede i bruk,Det namnet er allereie i bruk
+MENU_COLOUR,Colour,Farge,Farge
+COLOR_GREEN,Neon green,Neongrønn,Neongrøn
+COLOR_ORANGE,Neon orange,Oransje,Oransje
+COLOR_CYAN,Cyan,Cyan,Cyan
+COLOR_PINK,Pink,Rosa,Rosa
+COLOR_PURPLE,Purple,Lilla,Lilla
+COLOR_WHITE,White,Hvit,Kvit
+MENU_TEXT_SIZE,Text size,Tekststørrelse,Tekststorleik
+TEXT_S,Small,Liten,Lito
+TEXT_M,Medium,Middels,Middels
+TEXT_L,Large,Stor,Stor
+TEXT_XL,Extra large,Ekstra stor,Ekstra storlek
+MENU_SOUND,Sound,Lyd,Lyd
+OPT_ON,On,På,På
+OPT_OFF,Off,Av,Av
+MENU_ALL_TIME,all-time best: %s,beste noensinne: %s,beste nokon gong: %s
+GAMEOVER_PRACTISE,words to practise:,ord å øve på:,ordi au øvje på:
+GAMEOVER_ALL_TIME,all-time best: %s,beste noensinne: %s,beste nokon gong: %s

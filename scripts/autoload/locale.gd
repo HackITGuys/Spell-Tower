@@ -6,7 +6,7 @@ extends Node
 signal locale_changed(code: String)
 
 ## OS locales that should map onto one of ours.
-const ALIASES := {"no": "nb", "nn": "nb"}
+const ALIASES := {"no": "nb"}
 
 
 func _ready() -> void:
@@ -17,7 +17,8 @@ func _ready() -> void:
 func available() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var paths: PackedStringArray = ProjectSettings.get_setting(
-			"internationalization/locale/translations", PackedStringArray())
+		"internationalization/locale/translations", PackedStringArray()
+	)
 	for p in paths:
 		var t := load(p) as Translation
 		if t == null:

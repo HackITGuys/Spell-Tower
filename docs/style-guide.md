@@ -62,7 +62,7 @@ Draw characters on a grid. Monospace cell width is `Term.char_width()`, and cust
 - **Scrolling**: the scroll area always spans the full screen, so the scrollbar sits at the screen edge. The width-capped content goes inside it, and the bar must never overlap the content.
 - **Width caps**: menus and result screens at most 760, the play area at most 960. Both scale with text size, using `WidthCap`, and are centred. Wide screens get calm empty margins, never stretched rows.
 - **Input lives at the bottom**: prompt, then power-ups, then the on-screen keyboard. The playfield fills the rest, and the HUD stays at the top.
-- Settings are a two-column grid: label on the left, dropdown on the right.
+- Settings are a two-column grid: label on the left, a `< value >` picker (`Stepper`) on the right.
 - Keep touch targets at least 56 px tall in the base viewport.
 
 ## 5. Controls (shared across the series)
@@ -77,9 +77,11 @@ Draw characters on a grid. Monospace cell width is `Term.char_width()`, and cust
 
 - Input is chosen by platform, never by a setting (`Settings.input_mode()`):
   - **Native mobile app:** the game's own on-screen keyboard. The system keyboard is disabled, and the layout comes from the language file.
-  - **Browser on a phone:** the phone's own keyboard, opened by a tap, through `WebKeys` (a hidden input with autocorrect off).
+  - **Browser on a phone or tablet:** the game's own on-screen keyboard, as in the mobile app. The phone's keyboard is never opened: it toggled with every tap and covered most of the game.
   - **Desktop:** the physical keyboard.
 - Buttons in the play area don't invert on hover (`Term.calm_button`), because touch screens leave buttons "hovered".
+- Choices are `< value >` pickers (`Stepper`, [scenes/stepper.gd](../scenes/stepper.gd)), never drop-down lists: popups are hard to use by touch. Arrows are at least 64 px wide; Left/Right step when the value has focus.
+- Scroll areas use a touch dead zone (`scroll_deadzone`), so a tap on a control inside them isn't read as a scroll.
 
 ## 6. Motion
 

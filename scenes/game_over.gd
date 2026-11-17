@@ -1,7 +1,7 @@
 extends Control
 
-const GameScene := "res://scenes/game.tscn"
-const MenuScene := "res://scenes/main_menu.tscn"
+const GAME_SCENE := "res://scenes/game.tscn"
+const MENU_SCENE := "res://scenes/main_menu.tscn"
 const MAX_WIDTH := 760.0
 
 
@@ -12,6 +12,7 @@ func _ready() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = Term.SCROLL_DEADZONE
 	add_child(scroll)
 	var cap := WidthCap.new(MAX_WIDTH)
 	cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -52,11 +53,11 @@ func _ready() -> void:
 	var retry := Button.new()
 	retry.text = "[ " + tr("GAMEOVER_RETRY") + " ]"
 	retry.add_theme_font_size_override("font_size", Term.sz(36))
-	retry.pressed.connect(func(): get_tree().change_scene_to_file(GameScene))
+	retry.pressed.connect(func(): get_tree().change_scene_to_file(GAME_SCENE))
 	v.add_child(retry)
 	var menu := Button.new()
 	menu.text = tr("GAMEOVER_MENU")
-	menu.pressed.connect(func(): get_tree().change_scene_to_file(MenuScene))
+	menu.pressed.connect(func(): get_tree().change_scene_to_file(MENU_SCENE))
 	v.add_child(menu)
 	retry.grab_focus.call_deferred()
 
@@ -73,4 +74,4 @@ func _add(parent: Control, text: String, col: Color, size := -1) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		get_tree().change_scene_to_file(MenuScene)
+		get_tree().change_scene_to_file(MENU_SCENE)

@@ -1,8 +1,8 @@
 extends Control
 ## The playfield: words fall toward the base, the player types them.
 
-const GameOverScene := "res://scenes/game_over.tscn"
-const MenuScene := "res://scenes/main_menu.tscn"
+const GAME_OVER_SCENE := "res://scenes/game_over.tscn"
+const MENU_SCENE := "res://scenes/main_menu.tscn"
 const BAR_CHARS := 20
 const MAX_WIDTH := 960.0
 const PRACTICE_MAX := 12
@@ -31,8 +31,6 @@ var _blink := 0.0
 var _prompt_flash := 0.0
 var _ending := false
 var _started := false
-var _web_mobile := false     ## typing through the phone's own keyboard (WebKeys)
-var _web_typed := false
 
 
 func _ready() -> void:
@@ -58,16 +56,13 @@ func _ready() -> void:
 	model.game_over.connect(_on_game_over)
 	model.bar_changed.connect(func(_v): _update_hud())
 	powers.changed.connect(_update_powers)
-	powers.earned.connect(func(kind):
-		Sfx.play("earn")
-		_flash_msg(tr("MSG_POWERUP") % _power_name(kind), Term.ACCENT))
+	powers.earned.connect(
+		func(kind):
+			Sfx.play("earn")
+			_flash_msg(tr("MSG_POWERUP") % _power_name(kind), Term.ACCENT)
+	)
 
-	_web_mobile = Settings.input_mode() == Settings.INPUT_WEB_MOBILE
 	_build_ui()
-	if _web_mobile:
-		WebKeys.char_typed.connect(_on_web_char)
-		WebKeys.backspace.connect(_release)
-		WebKeys.set_active(true)
 	_update_hud()
 	_update_powers()
 	_flash_msg(tr("MSG_GET_READY"), Term.FG)
@@ -79,13 +74,12 @@ func _start_play() -> void:
 	if _ending:
 		return
 	_started = true
-	if _web_mobile and not _web_typed:
-		_flash_msg(tr("MSG_TAP_TO_TYPE"), Term.ACCENT)
 	_spawn()
 	_spawn_timer.start(Tuning.spawn_interval(model.level))
 
 
 # --- UI ---------------------------------------------------------------------
+
 
 func _build_ui() -> void:
 	var cap := WidthCap.new(MAX_WIDTH)
@@ -161,7 +155,6 @@ func _build_ui() -> void:
 	if Settings.show_keyboard():
 		_keyboard = OnScreenKeyboard.new()
 		_keyboard.process_mode = Node.PROCESS_MODE_PAUSABLE
-		_keyboard.custom_minimum_size.y = 260
 		_keyboard.set_layout(WordBank.lang_def.get("keyboard", []))
 		_keyboard.letter_pressed.connect(_handle_char)
 		_keyboard.release_pressed.connect(_release)
@@ -215,8 +208,10 @@ func _build_pause_panel() -> void:
 func _update_hud() -> void:
 	if _hud_line == null:
 		return
-	_hud_line.text = "%s  %s %d  %s %d" % [
-		Tuning.level_label(model.level).to_upper(), tr("HUD_SCORE"), model.score, tr("HUD_STREAK"), model.streak]
+	_hud_line.text = (
+		"%s  %s %d  %s %d"
+		% [Tuning.level_label(model.level).to_upper(), tr("HUD_SCORE"), model.score, tr("HUD_STREAK"), model.streak]
+	)
 	var filled := int(round(model.bar / Tuning.BAR_MAX * BAR_CHARS))
 	_bar_line.text = "[%s%s] %3d%%" % ["█".repeat(filled), "░".repeat(BAR_CHARS - filled), int(model.bar)]
 	var col := Term.FG
@@ -315,6 +310,7 @@ func _shake(strength := 14.0) -> void:
 
 # --- Loop -------------------------------------------------------------------
 
+
 func _process(delta: float) -> void:
 	_blink += delta
 	_prompt_flash = maxf(0.0, _prompt_flash - delta)
@@ -338,8 +334,7 @@ func _spawn() -> void:
 		return
 	var fw := FallingWord.new()
 	var fall_time := Tuning.fall_time(model.level, txt.length())
-	fw.setup(txt, WordBank.effective_difficulty(txt), _playfield.size.y / fall_time,
-			Term.font, Term.sz(Term.WORD_SIZE))
+	fw.setup(txt, WordBank.effective_difficulty(txt), _playfield.size.y / fall_time, Term.font, Term.sz(Term.WORD_SIZE))
 	fw.position = Vector2(_free_x(fw.size.x), -fw.size.y)
 	_world.add_child(fw)
 	words.append(fw)
@@ -353,8 +348,7 @@ func _free_x(width: float) -> float:
 		var x := randf_range(8.0, max_x)
 		var ok := true
 		for w in _alive_words():
-			if w.position.y < w.size.y * 3.0 and x < w.position.x + w.size.x + 16.0 \
-					and w.position.x < x + width + 16.0:
+			if w.position.y < w.size.y * 3.0 and x < w.position.x + w.size.x + 16.0 and w.position.x < x + width + 16.0:
 				ok = false
 				break
 		if ok:
@@ -380,6 +374,7 @@ func _blocked_initials() -> Dictionary:
 
 # --- Input ------------------------------------------------------------------
 
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
@@ -404,7 +399,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_3, KEY_KP_3:
 			_use_power(PowerUps.SHAKE)
 		_:
-			if k.unicode > 0 and not _web_mobile:
+			if k.unicode > 0:
 				_handle_char(String.chr(k.unicode))
 
 
@@ -435,18 +430,6 @@ func _handle_char(raw: String) -> void:
 	_update_prompt()
 
 
-func _on_web_char(ch: String) -> void:
-	_web_typed = true
-	_handle_char(ch)
-
-
-func _exit_tree() -> void:
-	if _web_mobile:
-		WebKeys.set_active(false)
-		WebKeys.char_typed.disconnect(_on_web_char)
-		WebKeys.backspace.disconnect(_release)
-
-
 func _release() -> void:
 	targeting.release()
 	_update_prompt()
@@ -458,17 +441,15 @@ func _toggle_pause() -> void:
 	var p := not get_tree().paused
 	get_tree().paused = p
 	_pause_panel.visible = p
-	if _web_mobile:
-		WebKeys.set_active(not p)
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _ending and is_inside_tree() \
-			and not get_tree().paused:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _ending and is_inside_tree() and not get_tree().paused:
 		_toggle_pause()
 
 
 # --- Events -----------------------------------------------------------------
+
 
 func _on_completed(w: FallingWord) -> void:
 	Sfx.play("hit")
@@ -500,9 +481,11 @@ func _on_missed(w: FallingWord) -> void:
 	w.crash()
 	_shake(8.0)
 	_base.add_theme_color_override("font_color", Term.ERROR)
-	get_tree().create_timer(0.3).timeout.connect(func():
-		if is_instance_valid(_base):
-			_base.remove_theme_color_override("font_color"))
+	get_tree().create_timer(0.3).timeout.connect(
+		func():
+			if is_instance_valid(_base):
+				_base.remove_theme_color_override("font_color")
+	)
 	_update_hud()
 
 
@@ -553,18 +536,18 @@ func _on_game_over() -> void:
 		"accuracy": int(round(model.overall_accuracy() * 100.0)),
 		"practice": practice.duplicate(),
 	}
-	get_tree().create_timer(1.5).timeout.connect(func():
-		get_tree().change_scene_to_file(GameOverScene))
+	get_tree().create_timer(1.5).timeout.connect(func(): get_tree().change_scene_to_file(GAME_OVER_SCENE))
 
 
 func _to_menu() -> void:
 	get_tree().paused = false
 	Stats.save_data()
 	Settings.record_score(lang, model.score)
-	get_tree().change_scene_to_file(MenuScene)
+	get_tree().change_scene_to_file(MENU_SCENE)
 
 
 # --- Power-ups ----------------------------------------------------------------
+
 
 func _use_power(kind: String) -> void:
 	if _ending or get_tree().paused or powers.count(kind) == 0:

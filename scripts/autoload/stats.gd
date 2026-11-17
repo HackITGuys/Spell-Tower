@@ -18,12 +18,14 @@ const ADJUST_CAP := 2
 
 var data := {"version": VERSION, "words": {}}
 var profile_id := ""
-var _dirty := false
 ## Tests set this to false so they never touch the player's real stats.
 var persist := true
+var _dirty := false
 
 
 func _ready() -> void:
+	if not Settings.uses_profiles():
+		persist = false  # web: nothing is stored
 	use_profile(Settings.current_id())
 
 
@@ -163,6 +165,9 @@ func save_data() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED \
-			or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+	if (
+		what == NOTIFICATION_WM_CLOSE_REQUEST
+		or what == NOTIFICATION_APPLICATION_PAUSED
+		or what == NOTIFICATION_APPLICATION_FOCUS_OUT
+	):
 		save_data()

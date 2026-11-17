@@ -23,7 +23,7 @@ WordBank="*res://scripts/autoload/word_bank.gd"
 Locale="*res://scripts/autoload/locale.gd"
 Term="*res://scripts/autoload/term.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
-WebKeys="*res://scripts/autoload/web_keys.gd"
+TestBridge="*res://scripts/autoload/test_bridge.gd"
 
 [display]
 
@@ -35,13 +35,17 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+
 [gui]
 
 theme/custom_font="res://fonts/JetBrainsMono-Regular.ttf"
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://i18n/ui.en.translation", "res://i18n/ui.nb.translation")
+locale/translations=PackedStringArray("res://i18n/ui.en.translation", "res://i18n/ui.nb.translation", "res://i18n/ui.nn.translation")
 
 [physics]
 

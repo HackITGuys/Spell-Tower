@@ -1,0 +1,36 @@
+# Explains early why a PR into main can't be merged: main only takes release PRs
+# (release/<tag> branches opened by release.yml). The actual protection is the
+# required "release-gate" check in main's ruleset; this check is informational.
+# (PRs opened by release.yml itself don't start workflows, so this runs for
+# hand-made PRs.)
+name: main-guard
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-only:
+    name: main takes releases only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Head is a tagged release
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          TAG=$(git tag --points-at "$HEAD_SHA" --list 'v*' | sort -V | tail -n1)
+          if [[ "$HEAD_REF" != release/v* ]] || [ -z "$TAG" ]; then
+            echo "::error::main only accepts release PRs. Tag a develop commit (git tag -a v1.2.3 && git push origin v1.2.3); release.yml tests it and opens the PR."
+            exit 1
+          fi
+          echo "Release PR for $TAG ($HEAD_SHA)."

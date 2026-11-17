@@ -15,3 +15,13 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: ci
+  - package-ecosystem: npm # Playwright for the browser function tests
+    directory: /tests/e2e
+    target-branch: develop
+    schedule:
+      interval: weekly
+    groups:
+      e2e:
+        patterns: ["*"]
+    commit-message:
+      prefix: test
