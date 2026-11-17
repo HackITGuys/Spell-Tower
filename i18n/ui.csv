@@ -13,7 +13,7 @@ MENU_QUIT,QUIT,AVSLUTT,AVSLUT
 MENU_BEST,best score: %s,rekord: %s,rekord: %s
 MENU_HELP_1,type a falling word to destroy it,skriv et fallende ord for å fjerne det,skriv eit fallande ord for å fjerne det
 MENU_HELP_2,the first letter locks on - backspace lets go,første bokstav låser - tilbaketast slipper,første bokstav låser - tilbaketast slepper
-MENU_HELP_3,1 / 2 / 3 = power-ups   esc = pause,1 / 2 / 3 = kraftkort   esc = pause,1 / 2 / 3 = kraftkort   esc = kaffipause
+MENU_HELP_3,1 / 2 / 3 = power-ups   esc = pause,1 / 2 / 3 = kraftkort   esc = pause,1 / 2 / 3 = kraftkort   esc = pause
 HUD_SCORE,SCORE,POENG,POENG
 HUD_STREAK,STREAK,REKKE,REKKJE
 POWER_AUTOSPELL,AUTO,AUTO,AUTO
@@ -52,7 +52,7 @@ PROFILE_ERR_EMPTY,Type a name first,Skriv et navn først,Skriv eit namn fyst
 PROFILE_ERR_TAKEN,That name is already used,Det navnet er allerede i bruk,Det namnet er allereie i bruk
 MENU_COLOUR,Colour,Farge,Farge
 COLOR_GREEN,Neon green,Neongrønn,Neongrøn
-COLOR_ORANGE,Neon orange,Neonoransje,Neonoransje
+COLOR_ORANGE,Neon orange,Oransje,Oransje
 COLOR_CYAN,Cyan,Cyan,Cyan
 COLOR_PINK,Pink,Rosa,Rosa
 COLOR_PURPLE,Purple,Lilla,Lilla
