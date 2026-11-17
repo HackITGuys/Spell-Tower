@@ -49,6 +49,14 @@ func test_single_option_does_not_step() -> void:
 	assert_str(st.selected_value()).is_equal("only")
 
 
+func test_tapping_the_value_steps_forward() -> void:
+	var st := _stepper(["a", "b"])
+	(st.focus_target() as Button).pressed.emit()
+	assert_str(st.selected_value()).is_equal("b")
+	(st.focus_target() as Button).pressed.emit()
+	assert_str(st.selected_value()).is_equal("a")
+
+
 func test_arrow_keys_step_when_focused() -> void:
 	var st := _stepper([1, 2, 3])
 	add_child(st)

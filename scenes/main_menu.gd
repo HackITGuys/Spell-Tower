@@ -8,8 +8,6 @@ extends Control
 
 const GameScene := "res://scenes/game.tscn"
 const MAX_WIDTH := 760.0
-## Touch drags shorter than this (px) are taps, not scrolls.
-const SCROLL_DEADZONE := 24
 
 var _ui: Control
 var _show_new_player := false
@@ -45,7 +43,7 @@ func _build() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.scroll_deadzone = SCROLL_DEADZONE
+	scroll.scroll_deadzone = Term.SCROLL_DEADZONE
 	add_child(scroll)
 	_ui = scroll
 	var margin := MarginContainer.new()

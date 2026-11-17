@@ -267,7 +267,8 @@ func is_web() -> bool:
 func is_touch() -> bool:
 	if force_touch != null:
 		return bool(force_touch)
-	if OS.has_feature("android") or OS.has_feature("ios") 			or OS.has_feature("web_android") or OS.has_feature("web_ios"):
+	if OS.has_feature("android") or OS.has_feature("ios") \
+			or OS.has_feature("web_android") or OS.has_feature("web_ios"):
 		return true
 	return is_web() and DisplayServer.is_touchscreen_available()
 

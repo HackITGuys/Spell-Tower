@@ -27,6 +27,8 @@ const MIN_HUE_GAP := 0.12
 const FONT_SIZE := 26
 const TITLE_SIZE := 56
 const WORD_SIZE := 30
+## Touch drags shorter than this (px) are taps, not scrolls (ScrollContainer.scroll_deadzone).
+const SCROLL_DEADZONE := 24
 
 var BG := Color(0.02, 0.035, 0.02)
 var FG := Color(0.3, 1.0, 0.45)
@@ -120,7 +122,7 @@ func build_theme() -> Theme:
 	var pressed := _box(ACCENT, ACCENT)
 	var disabled := _box(BG, DIM)
 	var focus := _box(Color(0, 0, 0, 0), ACCENT, false)
-	for type in ["Button", "OptionButton"]:
+	for type in ["Button"]:
 		t.set_stylebox("normal", type, normal)
 		t.set_stylebox("hover", type, hover)
 		t.set_stylebox("pressed", type, pressed)

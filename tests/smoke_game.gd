@@ -37,8 +37,8 @@ func _initialize() -> void:
 	settings.ui_locale = _lang   # Locale's _ready re-applies this after _initialize
 	settings.grade = _grade
 	root.get_node("Locale").apply(_lang)
-	if TranslationServer.translate("MENU_QUIT") != _expected_quit():
-		_fail("UI locale %s not applied (got %s)" % [_lang, TranslationServer.translate("MENU_QUIT")])
+	if _active_locale() != _lang:
+		_fail("UI locale %s not applied (got %s)" % [_lang, _active_locale()])
 	change_scene_to_file("res://scenes/game.tscn")
 
 
@@ -51,7 +51,7 @@ func _process(_delta: float) -> bool:
 			return false
 		_start_level = _game.model.level
 		_game_ref = _game
-		if TranslationServer.translate("MENU_QUIT") != _expected_quit():
+		if _active_locale() != _lang:
 			_fail("UI locale %s not active in the game" % _lang)
 		if _start_level != Tuning.first_level_of_grade(_grade):
 			_fail("start grade %d should start at its first stage (got %s)" % [_grade, Tuning.level_label(_start_level)])
@@ -141,8 +141,8 @@ func _finish() -> bool:
 	return true
 
 
-func _expected_quit() -> String:
-	return "AVSLUTT" if _lang == "nb" else "QUIT"
+func _active_locale() -> String:
+	return TranslationServer.get_locale().split("_")[0]
 
 
 func _game_lang() -> String:

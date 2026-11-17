@@ -6,7 +6,7 @@ extends Node
 signal locale_changed(code: String)
 
 ## OS locales that should map onto one of ours.
-const ALIASES := {"no": "nb", "nn": "nb"}
+const ALIASES := {"no": "nb"}
 
 
 func _ready() -> void:

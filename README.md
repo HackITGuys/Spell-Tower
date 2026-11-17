@@ -140,7 +140,7 @@ Avoid ads in the child-facing app. A server-side subscription (3) fits best with
 - Android export, signing and device testing
 - Release gate with browser end-to-end tests (proposal: [docs/release-testing.md](docs/release-testing.md))
 - Server: word-list upload, stats sync and dynamic difficulty (see docs)
-- More languages. The Norwegian list is a ~280-word sample that needs review by a native speaker.
+- More languages. The Norwegian lists (bokmål `nb`, nynorsk `nn`) are ~310-word samples that need review by a native speaker.
 - Extract `terminal_kit` before game 2
 - Style: explore the "line-art" direction (see the style guide TODO)
 
