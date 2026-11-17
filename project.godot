@@ -34,6 +34,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+
 [gui]
 
 theme/custom_font="res://fonts/JetBrainsMono-Regular.ttf"

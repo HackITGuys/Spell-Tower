@@ -1,5 +1,9 @@
-# Tests + web export on every push / PR.
-# Deploys when main changes (a merged release PR, see release-pr.yml):
+# Tests + exports on every push / PR:
+#   - unit tests (GdUnit4, tests/unit/) and scripted smoke playthroughs
+#   - web export, portable Windows .exe, Linux binary and AppImage
+#   - launch checks: each desktop build must start and quit cleanly
+# Also called by release.yml (workflow_call) to build and test a release.
+# Deploys when main changes (a merged release PR, see release.yml):
 #   - DigitalOcean App Platform: the export is force-pushed to the `web-deploy`
 #     branch, which the App Platform static site (.do/app.yaml) auto-deploys.
 #   - Optional GitHub Pages: Settings -> Pages -> Source: "GitHub Actions",
@@ -16,6 +20,10 @@ on:
         description: "Publish this build to DigitalOcean (web-deploy branch)"
         type: boolean
         default: false
+  workflow_call:
+
+env:
+  APPIMAGETOOL_VERSION: "1.9.1"
 
 jobs:
   test-and-export:
@@ -57,8 +65,19 @@ jobs:
       - name: Import assets
         run: godot --headless --path . --import
 
-      - name: Unit tests
-        run: godot --headless --path . --script res://tests/run_tests.gd
+      # GdUnit4 exit codes: 0 ok, 100 failures, 101 orphan nodes (also a failure here).
+      - name: Unit tests (GdUnit4)
+        run: |
+          godot --headless --path . -s -d res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+            -a res://tests/unit --ignoreHeadlessMode -rd reports
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report
+          path: reports
+          if-no-files-found: ignore
 
       - name: Smoke tests
         run: |
@@ -101,11 +120,91 @@ jobs:
           name: spelltower-web
           path: build/web
 
+      # Single-file desktop builds: the game data is embedded (embed_pck).
+      - name: Export Windows and Linux
+        run: |
+          set -euo pipefail
+          mkdir -p build/windows build/linux
+          godot --headless --path . --export-release "Windows Desktop" build/windows/SpellTower.exe
+          godot --headless --path . --export-release "Linux" build/linux/SpellTower.x86_64
+          test ! -e build/windows/SpellTower.pck && test ! -e build/linux/SpellTower.pck
+
+      - name: Launch check (Linux binary)
+        run: |
+          set -euo pipefail
+          chmod +x build/linux/SpellTower.x86_64
+          LOG="$RUNNER_TEMP/linux.log"
+          build/linux/SpellTower.x86_64 --headless --quit-after 300 2>&1 | tee "$LOG"
+          ! grep -E "SCRIPT ERROR|^ERROR" "$LOG"
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"   # runners have no FUSE
+          ARCH: x86_64
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq librsvg2-bin > /dev/null
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
+            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          A="$RUNNER_TEMP/SpellTower.AppDir"
+          mkdir -p "$A/usr/bin"
+          cp build/linux/SpellTower.x86_64 "$A/usr/bin/"
+          rsvg-convert -w 256 -h 256 icon.svg -o "$A/spelltower.png"
+          printf '%s\n' '#!/bin/sh' 'HERE="$(dirname "$(readlink -f "$0")")"' 'exec "$HERE/usr/bin/SpellTower.x86_64" "$@"' > "$A/AppRun"
+          chmod +x "$A/AppRun"
+          printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=SpellTower' 'Comment=Spelling game' \
+            'Exec=SpellTower.x86_64' 'Icon=spelltower' 'Categories=Game;Education;' 'Terminal=false' > "$A/spelltower.desktop"
+          mkdir -p build/appimage
+          "$RUNNER_TEMP/appimagetool" "$A" build/appimage/SpellTower-x86_64.AppImage
+
+      - name: Launch check (AppImage)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          set -euo pipefail
+          LOG="$RUNNER_TEMP/appimage.log"
+          build/appimage/SpellTower-x86_64.AppImage --headless --quit-after 300 2>&1 | tee "$LOG"
+          ! grep -E "SCRIPT ERROR|^ERROR" "$LOG"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spelltower-windows
+          path: build/windows/SpellTower.exe
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spelltower-linux
+          path: build/linux/SpellTower.x86_64
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spelltower-appimage
+          path: build/appimage/SpellTower-x86_64.AppImage
+
       - name: Prepare Pages artifact
         if: vars.DEPLOY_PAGES == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
           path: build/web
+
+  # The .exe must start and quit cleanly on a real Windows machine.
+  launch-windows:
+    needs: test-and-export
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: spelltower-windows
+      - name: Launch check (Windows .exe)
+        shell: pwsh
+        run: |
+          # A GUI .exe doesn't block the shell, so wait for it explicitly.
+          $p = Start-Process -FilePath .\SpellTower.exe -ArgumentList '--headless', '--quit-after', '300' `
+            -Wait -PassThru -NoNewWindow -RedirectStandardOutput out.log -RedirectStandardError err.log
+          Get-Content out.log, err.log
+          if ($p.ExitCode -ne 0) { throw "SpellTower.exe exited with $($p.ExitCode)" }
+          if (Select-String -Path out.log, err.log -Pattern 'SCRIPT ERROR|^ERROR' -Quiet) { throw "errors while starting" }
 
   deploy-pages:
     needs: test-and-export
@@ -124,7 +223,7 @@ jobs:
   # The App Platform static site watches `web-deploy` (deploy_on_push). The
   # branch is rebuilt as a single commit each time, so it never grows.
   deploy-digitalocean:
-    needs: test-and-export
+    needs: [test-and-export, launch-windows]
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy)
     runs-on: ubuntu-latest
     permissions:

@@ -1,10 +1,15 @@
 extends Control
 ## Title screen: player profile, settings (incl. start grade), start. On first launch (or
 ## "+ new player") it shows the new-player form instead.
+## The web version has no profiles (Settings.uses_profiles()): settings, start
+## grade and START only.
+## Pickers are Steppers (< value >), not drop-downs, so they work by touch.
 ## Rebuilt whenever the language, look or profile changes.
 
 const GameScene := "res://scenes/game.tscn"
 const MAX_WIDTH := 760.0
+## Touch drags shorter than this (px) are taps, not scrolls.
+const SCROLL_DEADZONE := 24
 
 var _ui: Control
 var _show_new_player := false
@@ -33,7 +38,6 @@ func _queue_build() -> void:
 func _build() -> void:
 	_rebuild_queued = false
 	_delete_armed = false
-	_disconnect_web_keys()   # only the new-player form turns it back on
 	if _ui != null:
 		_ui.queue_free()
 	# Scroll area spans the whole screen (scrollbar at the far right edge);
@@ -41,6 +45,7 @@ func _build() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = SCROLL_DEADZONE
 	add_child(scroll)
 	_ui = scroll
 	var margin := MarginContainer.new()
@@ -57,7 +62,7 @@ func _build() -> void:
 	cap.add_child(v)
 
 	_add_title(v)
-	if _show_new_player or not Settings.has_profiles():
+	if _needs_new_player():
 		_build_new_player(v)
 	else:
 		_build_main(v)
@@ -87,74 +92,70 @@ func _build_main(v: VBoxContainer) -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	v.add_child(grid)
 
-	# Player
-	var player_opt := _row(grid, tr("MENU_PLAYER"))
-	for p in Settings.profiles():
-		player_opt.add_item(p["name"])
-		player_opt.set_item_metadata(player_opt.item_count - 1, p["id"])
-		if p["id"] == Settings.current_id():
-			player_opt.select(player_opt.item_count - 1)
-	player_opt.add_item(tr("MENU_NEW_PLAYER"))
-	player_opt.set_item_metadata(player_opt.item_count - 1, "")
-	player_opt.item_selected.connect(func(i):
-		var id: String = player_opt.get_item_metadata(i)
-		if id == "":
-			_new_grade = Settings.grade
-			_show_new_player = true
-			_queue_build()
-		else:
-			Settings.select_profile(id))
+	# Player (not on the web: nothing can be kept between visits there)
+	if Settings.uses_profiles():
+		var player_opt := _row(grid, tr("MENU_PLAYER"))
+		for p in Settings.profiles():
+			player_opt.add_option(p["name"], p["id"], p["id"] == Settings.current_id())
+		player_opt.add_option(tr("MENU_NEW_PLAYER"), "")
+		player_opt.value_changed.connect(func(id):
+			if id == "":
+				_new_grade = Settings.grade
+				_show_new_player = true
+				_queue_build()
+			else:
+				Settings.select_profile(id))
 
 	# Interface language
 	var ui_opt := _row(grid, tr("MENU_UI_LANGUAGE"))
 	for l in Locale.available():
-		_item(ui_opt, l["name"], l["code"], l["code"] == Locale.current())
-	ui_opt.item_selected.connect(func(i):
-		Settings.ui_locale = ui_opt.get_item_metadata(i)
+		ui_opt.add_option(l["name"], l["code"], l["code"] == Locale.current())
+	ui_opt.value_changed.connect(func(code):
+		Settings.ui_locale = code
 		Settings.save_settings()
 		Locale.apply(Settings.ui_locale))
 
 	# Word language
 	var word_opt := _row(grid, tr("MENU_WORD_LANGUAGE"))
-	_item(word_opt, tr("MENU_FOLLOW_UI"), "", Settings.word_lang == "")
+	word_opt.add_option(tr("MENU_FOLLOW_UI"), "", Settings.word_lang == "")
 	for l: Dictionary in WordBank.languages:
-		_item(word_opt, l["name"], l["code"], l["code"] == Settings.word_lang)
-	word_opt.item_selected.connect(func(i):
-		Settings.word_lang = word_opt.get_item_metadata(i)
+		word_opt.add_option(l["name"], l["code"], l["code"] == Settings.word_lang)
+	word_opt.value_changed.connect(func(code):
+		Settings.word_lang = code
 		Settings.save_settings()
 		_queue_build())
 
 	# Start grade (every game starts at its first stage)
 	var grade_opt := _row(grid, tr("MENU_START_GRADE"))
 	_fill_grades(grade_opt, Settings.grade)
-	grade_opt.item_selected.connect(func(i):
-		Settings.grade = grade_opt.get_item_metadata(i)
+	grade_opt.value_changed.connect(func(g):
+		Settings.grade = g
 		Settings.save_settings())
 
 	# Colour
 	var col_opt := _row(grid, tr("MENU_COLOUR"))
 	for p in Term.PALETTES:
-		_item(col_opt, tr(p["key"]), p["id"], p["id"] == Settings.palette)
-	col_opt.item_selected.connect(func(i):
-		Settings.palette = col_opt.get_item_metadata(i)
+		col_opt.add_option(tr(p["key"]), p["id"], p["id"] == Settings.palette)
+	col_opt.value_changed.connect(func(id):
+		Settings.palette = id
 		Settings.save_settings()
 		Term.apply(Settings.palette, Settings.text_size))
 
 	# Text size
 	var size_opt := _row(grid, tr("MENU_TEXT_SIZE"))
 	for t in Term.TEXT_SIZES:
-		_item(size_opt, tr(t["key"]), t["id"], t["id"] == Settings.text_size)
-	size_opt.item_selected.connect(func(i):
-		Settings.text_size = size_opt.get_item_metadata(i)
+		size_opt.add_option(tr(t["key"]), t["id"], t["id"] == Settings.text_size)
+	size_opt.value_changed.connect(func(id):
+		Settings.text_size = id
 		Settings.save_settings()
 		Term.apply(Settings.palette, Settings.text_size))
 
 	# Sound
 	var snd_opt := _row(grid, tr("MENU_SOUND"))
-	_item(snd_opt, tr("OPT_ON"), true, Settings.sound)
-	_item(snd_opt, tr("OPT_OFF"), false, not Settings.sound)
-	snd_opt.item_selected.connect(func(i):
-		Settings.sound = snd_opt.get_item_metadata(i)
+	snd_opt.add_option(tr("OPT_ON"), true, Settings.sound)
+	snd_opt.add_option(tr("OPT_OFF"), false, not Settings.sound)
+	snd_opt.value_changed.connect(func(on):
+		Settings.sound = on
 		Settings.save_settings()
 		Sfx.play("hit"))
 
@@ -179,19 +180,20 @@ func _build_main(v: VBoxContainer) -> void:
 	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
 	bottom.add_theme_constant_override("separation", 16)
 	v.add_child(bottom)
-	var del := Button.new()
-	del.text = tr("MENU_DELETE_PLAYER") + " " + Settings.current_name()
-	del.add_theme_font_size_override("font_size", Term.sz(20))
-	del.pressed.connect(func():
-		if not _delete_armed:
-			_delete_armed = true
-			del.text = tr("MENU_DELETE_CONFIRM")
-			del.add_theme_color_override("font_color", Term.ERROR)
-			return
-		Settings.delete_profile(Settings.current_id())
-		_queue_build())
-	bottom.add_child(del)
-	if not OS.has_feature("web"):
+	if Settings.uses_profiles():
+		var del := Button.new()
+		del.text = tr("MENU_DELETE_PLAYER") + " " + Settings.current_name()
+		del.add_theme_font_size_override("font_size", Term.sz(20))
+		del.pressed.connect(func():
+			if not _delete_armed:
+				_delete_armed = true
+				del.text = tr("MENU_DELETE_CONFIRM")
+				del.add_theme_color_override("font_color", Term.ERROR)
+				return
+			Settings.delete_profile(Settings.current_id())
+			_queue_build())
+		bottom.add_child(del)
+	if not Settings.is_web():
 		var quit := Button.new()
 		quit.text = tr("MENU_QUIT")
 		quit.add_theme_font_size_override("font_size", Term.sz(20))
@@ -200,9 +202,13 @@ func _build_main(v: VBoxContainer) -> void:
 
 
 ## Pre-school, Grade 1 .. Grade 10.
-func _fill_grades(opt: OptionButton, selected: int) -> void:
+func _fill_grades(opt: Stepper, selected: int) -> void:
 	for g in range(Tuning.MIN_GRADE, Tuning.MAX_GRADE + 1):
-		_item(opt, Tuning.grade_name(g), g, g == selected)
+		opt.add_option(Tuning.grade_name(g), g, g == selected)
+
+
+func _needs_new_player() -> bool:
+	return Settings.uses_profiles() and (_show_new_player or not Settings.has_profiles())
 
 
 # --- New player -----------------------------------------------------------------
@@ -229,7 +235,7 @@ func _build_new_player(v: VBoxContainer) -> void:
 	grid.add_child(_name_edit)
 	var grade_opt := _row(grid, tr("PROFILE_GRADE"))
 	_fill_grades(grade_opt, _new_grade)
-	grade_opt.item_selected.connect(func(i): _new_grade = grade_opt.get_item_metadata(i))
+	grade_opt.value_changed.connect(func(g): _new_grade = g)
 
 	_name_error = _label("", Term.ERROR)
 	_name_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -269,52 +275,8 @@ func _build_new_player(v: VBoxContainer) -> void:
 			_name_edit.caret_column = _name_edit.text.length()
 			Sfx.play("key"))
 		v.add_child(kb)
-	elif Settings.input_mode() == Settings.INPUT_WEB_MOBILE:
-		# Browser on a phone: tapping opens the phone's own keyboard (WebKeys).
-		_name_edit.virtual_keyboard_enabled = false
-		_name_edit.focus_mode = Control.FOCUS_NONE
-		var hint := _label(tr("MSG_TAP_TO_TYPE"), Term.ACCENT)
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(hint)
-		_connect_web_keys()
 	else:
 		_name_edit.grab_focus.call_deferred()
-
-
-func _connect_web_keys() -> void:
-	if not WebKeys.char_typed.is_connected(_on_web_char):
-		WebKeys.char_typed.connect(_on_web_char)
-		WebKeys.backspace.connect(_on_web_backspace)
-		WebKeys.enter.connect(_on_web_enter)
-	WebKeys.set_active(true)
-
-
-func _disconnect_web_keys() -> void:
-	if WebKeys.char_typed.is_connected(_on_web_char):
-		WebKeys.char_typed.disconnect(_on_web_char)
-		WebKeys.backspace.disconnect(_on_web_backspace)
-		WebKeys.enter.disconnect(_on_web_enter)
-	WebKeys.set_active(false)
-
-
-func _on_web_char(ch: String) -> void:
-	if is_instance_valid(_name_edit) and _name_edit.text.length() < Settings.NAME_MAX:
-		_name_edit.text += ch
-		Sfx.play("key")
-
-
-func _on_web_backspace() -> void:
-	if is_instance_valid(_name_edit):
-		_name_edit.text = _name_edit.text.left(-1)
-
-
-func _on_web_enter() -> void:
-	if is_instance_valid(_name_edit):
-		_create_player()
-
-
-func _exit_tree() -> void:
-	_disconnect_web_keys()
 
 
 func _create_player() -> void:
@@ -326,29 +288,20 @@ func _create_player() -> void:
 		_name_error.text = tr("PROFILE_ERR_TAKEN")
 		return
 	_show_new_player = false
-	_disconnect_web_keys()
 	Settings.create_profile(name, _new_grade)   # emits profile_changed -> rebuild
 	_queue_build()
 
 
 # --- Helpers ------------------------------------------------------------------
 
-func _row(grid: GridContainer, text: String) -> OptionButton:
+func _row(grid: GridContainer, text: String) -> Stepper:
 	var l := _label(text, Term.FG)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_child(l)
-	var opt := OptionButton.new()
+	var opt := Stepper.new()
 	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opt.fit_to_longest_item = true
 	grid.add_child(opt)
 	return opt
-
-
-func _item(opt: OptionButton, text: String, meta: Variant, selected: bool) -> void:
-	opt.add_item(text)
-	opt.set_item_metadata(opt.item_count - 1, meta)
-	if selected:
-		opt.select(opt.item_count - 1)
 
 
 func _big_button(parent: Control, text: String) -> Button:
@@ -371,7 +324,7 @@ func _start() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _show_new_player or not Settings.has_profiles():
+	if _needs_new_player():
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ENTER:
 		get_viewport().set_input_as_handled()

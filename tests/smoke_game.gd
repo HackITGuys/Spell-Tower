@@ -6,7 +6,8 @@ extends SceneTree
 ## 0 = pre-school).
 
 const PLAY_FRAMES := 60 * 90    # 90 s typing perfectly
-const IDLE_FRAMES := 60 * 240   # then stop typing until game over
+const IDLE_FRAMES := 60 * 480   # then stop typing until game over (falling back through
+                                # every stage climbed takes a few minutes of game time)
 
 var _frame := 0
 var _game: Node

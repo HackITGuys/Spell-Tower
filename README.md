@@ -17,12 +17,13 @@ A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward
   - +1 CLEAR for every stage cleared.
 - **Esc** pauses the game.
 - **Typing** depends on the platform (it isn't a setting):
-  - **Native phone or tablet app:** the game's own on-screen keyboard. It has no autocorrect, and its layout comes from the language file.
-  - **Desktop app or desktop browser:** the physical keyboard.
-  - **Browser on a phone:** the phone's own keyboard. Tap the game to open it. It types into a hidden field with autocorrect, autocomplete and autocapitalise turned off ([web_keys.gd](scripts/autoload/web_keys.gd)).
+  - **Phone or tablet** (app or browser): the game's own on-screen keyboard. It has no autocorrect, its layout comes from the language file, and the phone's own keyboard never opens, so it can't cover the game.
+  - **Desktop app or desktop browser:** the physical keyboard. A physical keyboard also works on touch devices.
+- **Menus** use `< value >` pickers instead of drop-down lists, so they work by touch, mouse and keyboard (Left/Right).
 
 ## Players
-- Players are name-based and stored on the device only. Use a nickname: no other personal data is collected.
+- **Web version:** no players and nothing stored. Pick the settings and a start grade, and press START. Scores last until the page is closed.
+- **Desktop and mobile apps:** players are name-based and stored on the device only. Use a nickname: no other personal data is collected.
 - Each player keeps their own:
   - start grade, language, colour, text size and sound settings
   - best score per word language, and an all-time best
@@ -32,20 +33,26 @@ A terminal-styled spelling game for kids, made with Godot 4.7. Words fall toward
 ## Dev loop (web first)
 ```sh
 godot --headless --path . --import                                        # first time / after adding assets
-godot --headless --path . --script res://tests/run_tests.gd               # logic tests
+# unit tests (GdUnit4): add -a res://tests/unit/test_tuning.gd for a single suite
+godot --headless --path . -s -d res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests/unit --ignoreHeadlessMode
 godot --headless --path . --fixed-fps 60 --script res://tests/smoke_game.gd -- en   # scripted playthrough
 #   other variants: -- nb   |   -- en 0  (start grade, 0 = pre-school)
 godot --headless --path . --export-debug "Web" build/web/index.html       # web build
 python tools/serve_web.py                                                 # http://localhost:8060  (--lan for a phone)
+godot --headless --path . --export-release "Windows Desktop" build/windows/SpellTower.exe   # portable .exe
+godot --headless --path . --export-release "Linux" build/linux/SpellTower.x86_64            # Linux binary
 ```
 Or run `godot --path .` to play natively.
 
-The tests never write the player's real settings or stats.
+- **Unit tests** live in `tests/unit/` as [GdUnit4](https://github.com/godot-gdunit-labs/gdUnit4) suites. GdUnit4 is vendored in `addons/gdUnit4/` (pinned to v6.2.3), and its editor panel is enabled, so tests can also be run from the Godot editor.
+- **Smoke tests** in [tests/smoke_game.gd](tests/smoke_game.gd) play the real game scene with a scripted player.
+- The tests never write the player's real settings or stats.
 
 **CI:** [.github/workflows/build.yml](.github/workflows/build.yml) runs on every push and pull request:
 - installs the Godot version pinned in [.godot-version](.godot-version) and its export templates
-- runs the unit tests and all smoke variants
-- exports the web build and uploads it as an artifact
+- runs the GdUnit4 unit tests (the report is kept as the `test-report` artifact) and all smoke variants
+- exports the web build, the portable Windows `.exe`, the Linux binary and the AppImage, and uploads them as artifacts
+- launch checks: the Linux binary and AppImage (on Ubuntu) and the `.exe` (on Windows) must start and quit cleanly
 - checks `tools/serve_web.py` against the export on the latest Python 3
 - on `main` only: deploys to DigitalOcean (see [Releasing and publishing](#releasing-and-publishing))
 
@@ -55,7 +62,11 @@ Dependabot can't track Godot, so [godot-update.yml](.github/workflows/godot-upda
 ## Releasing and publishing
 `main` is protected and only changes through pull requests. Day-to-day work goes to `develop`, where CI tests every push.
 
-1. **Publish a GitHub Release** with `develop` as the target. [release-pr.yml](.github/workflows/release-pr.yml) opens a **"Release &lt;tag&gt;" PR from `develop` to `main`**. If one is already open, it adds a comment to it instead.
+1. **Publish a GitHub Release** with `develop` as the target. [release.yml](.github/workflows/release.yml) runs the full build and all tests on it. If they pass:
+   - the builds are attached to the release (web zip, Windows `.exe`, Linux binary, AppImage)
+   - a **"Release &lt;tag&gt;" PR from `develop` to `main`** is opened. If one is already open, it gets a comment instead.
+
+   If a test fails, nothing is attached and no PR is opened. A stricter gate, where tests run *before* a release is published, is proposed in [docs/release-testing.md](docs/release-testing.md).
 2. **Merge the PR.** CI runs on `main`, and if the tests pass, the `deploy-digitalocean` job pushes the web export to the **`web-deploy`** branch, under `public/`. That branch is generated and replaced on every deploy, so don't edit it.
 3. **DigitalOcean App Platform** watches `web-deploy` and redeploys the static site automatically.
 
@@ -76,14 +87,24 @@ To also publish to GitHub Pages:
 1. Enable Pages with the source set to "GitHub Actions".
 2. Set the repository variable `DEPLOY_PAGES=true`.
 
-Windows and Android builds can be added to the same workflow later. Android release builds need a signing keystore stored in repository secrets.
+## Desktop downloads
+Each release has portable builds attached; nothing needs installing:
+- **Windows:** `SpellTower-<tag>-windows.exe`, a single file with the game data inside. Windows may warn about an unknown publisher because the file isn't code-signed.
+- **Linux:** `SpellTower-<tag>-linux.x86_64` (make it executable with `chmod +x`) or `SpellTower-<tag>-x86_64.AppImage`.
+  - Both use the system's graphics (OpenGL), window (X11/Wayland) and sound libraries. Those can't be bundled, because graphics drivers belong to the system.
+  - **NixOS** can't run ordinary Linux binaries directly. Use `steam-run ./SpellTower-<tag>-linux.x86_64`, `appimage-run SpellTower-<tag>-x86_64.AppImage`, or enable `programs.nix-ld` (or `programs.appimage` with `binfmt = true`).
+
+Android needs a signing keystore stored in repository secrets, so it isn't built yet.
 
 ## Layout
 | Path | What |
 |---|---|
-| `scenes/` | main menu, game, game over, falling word, on-screen keyboard, width cap (UI built in code) |
+| `scenes/` | main menu, game, game over, falling word, on-screen keyboard, `< value >` stepper, width cap (UI built in code) |
 | `scripts/logic/` | pure, unit-tested rules: tuning, scoring, targeting, word picking, review queue, text normalisation, power-ups |
-| `scripts/autoload/` | settings and profiles, stats, word bank, locale, look (Term), sound (Sfx), phone keyboard (WebKeys) |
+| `scripts/autoload/` | settings, profiles and platform (web/touch), stats, word bank, locale, look (Term), sound (Sfx) |
+| `tests/unit/` | GdUnit4 unit suites; `tests/smoke_game.gd` is the scripted playthrough |
+| `addons/gdUnit4/` | the GdUnit4 test framework (vendored, v6.2.3) |
+| `.claude/agents/` | Claude Code agents for consistency reviews and refactoring (rules in [CLAUDE.md](CLAUDE.md)) |
 | `data/` | language manifest + word banks |
 | `i18n/ui.csv` | UI strings, one column per locale |
 | `docs/languages-and-difficulty.md` | how to add languages, and the difficulty/server design |
@@ -116,7 +137,8 @@ Kids' apps carry extra rules: Google Play's *Designed for Families* programme, C
 Avoid ads in the child-facing app. A server-side subscription (3) fits best with the planned word-list upload feature.
 
 ## Status / TODO
-- Windows and Android export presets, packaging and device testing
+- Android export, signing and device testing
+- Release gate with browser end-to-end tests (proposal: [docs/release-testing.md](docs/release-testing.md))
 - Server: word-list upload, stats sync and dynamic difficulty (see docs)
 - More languages. The Norwegian list is a ~280-word sample that needs review by a native speaker.
 - Extract `terminal_kit` before game 2

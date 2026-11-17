@@ -1,0 +1,98 @@
+# Publishing a GitHub Release (target: develop):
+#   1. build.yml runs on the release's commit: unit tests, smoke tests, all
+#      exports and the desktop launch checks.
+#   2. If everything passes, the builds are attached to the release:
+#      web zip, portable Windows .exe, Linux binary and AppImage.
+#   3. A "Release <tag>" PR from develop to main is opened (or commented on).
+#      Merging it updates main, and build.yml then deploys to DigitalOcean.
+# If a test fails, no files are attached and no PR is opened.
+#
+# The PR's head is develop's latest commit, which build.yml already tested on
+# push, so the required checks are there even though a PR opened with the
+# workflow token doesn't start a new run.
+# Needs: Settings -> Actions -> General -> "Allow GitHub Actions to create and approve pull requests".
+# Proposal for a stricter gate (tests before the release is published):
+# docs/release-testing.md.
+name: release
+
+on:
+  release:
+    types: [published]
+
+env:
+  BASE: main
+  HEAD_BRANCH: develop
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    # A called workflow can't use more token permissions than this job grants.
+    # build.yml's deploy jobs ask for these, but they're skipped for releases
+    # (they only run for pushes to main or a manual "deploy" run).
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+  attach-builds:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: spelltower-*
+          path: dist
+
+      - name: Attach builds to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          cd dist
+          (cd spelltower-web && zip -qr "../SpellTower-${TAG}-web.zip" .)
+          cp spelltower-windows/SpellTower.exe "SpellTower-${TAG}-windows.exe"
+          cp spelltower-linux/SpellTower.x86_64 "SpellTower-${TAG}-linux.x86_64"
+          cp spelltower-appimage/SpellTower-x86_64.AppImage "SpellTower-${TAG}-x86_64.AppImage"
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber \
+            "SpellTower-${TAG}-web.zip" "SpellTower-${TAG}-windows.exe" \
+            "SpellTower-${TAG}-linux.x86_64" "SpellTower-${TAG}-x86_64.AppImage"
+          ls -l SpellTower-* >> "$GITHUB_STEP_SUMMARY"
+
+  open-pr:
+    needs: [build, attach-builds]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Open the develop -> main release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+        run: |
+          set -euo pipefail
+          R="$GITHUB_REPOSITORY"
+
+          OPEN=$(gh pr list -R "$R" --base "$BASE" --head "$HEAD_BRANCH" --state open --json number -q '.[0].number // empty')
+          if [ -n "$OPEN" ]; then
+            gh pr comment "$OPEN" -R "$R" --body "Release [$TAG]($RELEASE_URL) was published and passed its tests. This PR now carries it too."
+            echo "Release PR #$OPEN is already open; added a comment for $TAG." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          AHEAD=$(gh api "repos/$R/compare/$BASE...$HEAD_BRANCH" -q .ahead_by)
+          if [ "$AHEAD" = "0" ]; then
+            echo "::notice::$HEAD_BRANCH has no commits that aren't on $BASE; no release PR needed."
+            exit 0
+          fi
+
+          URL=$(gh pr create -R "$R" --base "$BASE" --head "$HEAD_BRANCH" \
+            --title "Release $TAG" \
+            --body "Release [$TAG]($RELEASE_URL): $AHEAD commit(s) from \`$HEAD_BRANCH\`. Tests, exports and launch checks passed.
+
+          Merging this PR deploys the game to DigitalOcean (build.yml -> \`web-deploy\` branch).")
+          echo "Opened $URL" >> "$GITHUB_STEP_SUMMARY"
